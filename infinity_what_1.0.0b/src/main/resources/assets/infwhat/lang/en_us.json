@@ -1,0 +1,13 @@
+{
+  "block.infwhat.inf_fluid_generator": "Infinity Fluid Generator",
+  "container.infwhat.inf_fluid_generator": "Infinity Fluid Generator",
+  "gui.infwhat.fluid_name": "Fluid: %s",
+  "gui.infwhat.fluid_id": "%s",
+  "gui.infwhat.amount": "%s",
+  "gui.infwhat.empty": "Empty",
+  "gui.infwhat.infinite": "Infinite",
+  "block.infwhat.inf_item_generator": "Infinity Item Generator",
+  "container.infwhat.inf_item_generator": "Infinity Item Generator",
+  "gui.infwhat.items.led.off": "Not in infinite mode, please charge",
+  "gui.infwhat.items.led.on": "Already in infinite mode, running normally"
+}
