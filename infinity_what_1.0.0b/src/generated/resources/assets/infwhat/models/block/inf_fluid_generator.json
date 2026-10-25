@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:block/cube_all",
-  "textures": {
-    "all": "infwhat:block/inf_fluid_generator"
-  }
-}
