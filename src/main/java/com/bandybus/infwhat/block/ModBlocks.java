@@ -9,8 +9,8 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -28,7 +28,7 @@ public class ModBlocks {
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .setId(ResourceKey.create(Registries.BLOCK,
-                            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_fluid_generator")))));
+                            ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_fluid_generator")))));
 
     public static final DeferredHolder<Block, Block> INF_ITEM_GENERATOR = registerBlock("inf_item_generator",
             () -> new InfItemGeneratorBlock(BlockBehaviour.Properties.of()
@@ -40,7 +40,7 @@ public class ModBlocks {
                     .isRedstoneConductor((state, level, pos) -> false)
                     .requiresCorrectToolForDrops()
                     .setId(ResourceKey.create(Registries.BLOCK,
-                            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_item_generator")))));
+                            ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_item_generator")))));
 
     private static <T extends Block> DeferredHolder<Block, T> registerBlock(String name, Supplier<T> block) {
         DeferredHolder<Block, T> toReturn = BLOCKS.register(name, block);
@@ -52,7 +52,7 @@ public class ModBlocks {
         // Spec: stack_size = 1
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties().stacksTo(1)
                 .setId(ResourceKey.create(Registries.ITEM,
-                        Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, name)))
+                        ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID, name)))
                 .useBlockDescriptionPrefix()));
     }
 

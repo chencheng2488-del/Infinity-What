@@ -16,19 +16,26 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import com.mojang.serialization.MapCodec;
 
 import javax.annotation.Nullable;
 
 /**
  * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
- * opens a small UI, while every side exposes a NeoForge {@code ResourceHandler<ItemResource>}
- * capability so pipe mods can pull from it. The server tick handles only the explicitly
- * configured active output; redstone does not affect this block.
+ * opens a small UI, while every side exposes a Forge {@code IItemHandler} capability so pipe
+ * mods can pull from it. The server tick handles only the explicitly configured active output;
+ * redstone does not affect this block.
  */
 public class InfItemGeneratorBlock extends BaseEntityBlock {
+    public static final MapCodec<InfItemGeneratorBlock> CODEC = simpleCodec(InfItemGeneratorBlock::new);
 
     public InfItemGeneratorBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override
@@ -46,7 +53,7 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> blockEntityType) {
-        if (level.isClientSide()) {
+        if (level.isClientSide) {
             return null;
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_ITEM_GENERATOR.get(),
@@ -59,13 +66,13 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
         if (player.getMainHandItem().is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get())) {
             return InteractionResult.PASS;
         }
-        if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+        if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof InfItemGeneratorBlockEntity generator) {
                 serverPlayer.openMenu(generator, pos);
             }
         }
-        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
+        return level.isClientSide ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
     }
 
     /**
@@ -75,7 +82,7 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
      */
     @Override
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        if (!level.isClientSide()) {
+        if (!level.isClientSide) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof InfItemGeneratorBlockEntity generator) {
                 ItemStack stored = generator.getStoredItem();

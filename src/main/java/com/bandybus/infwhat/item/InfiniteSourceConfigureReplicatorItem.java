@@ -2,23 +2,22 @@ package com.bandybus.infwhat.item;
 
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.Item.TooltipContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-import java.util.function.Consumer;
+import javax.annotation.Nullable;
+import java.util.List;
 
 /** Sneak-use copies a generator configuration; regular use pastes it onto a matching generator. */
 public class InfiniteSourceConfigureReplicatorItem extends Item {
@@ -41,38 +40,38 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
         boolean fluidTarget = target instanceof InfFluidGeneratorBlockEntity;
         if (!itemTarget && !fluidTarget) return InteractionResult.PASS;
 
-        if (level.isClientSide()) return InteractionResult.SUCCESS;
+        if (level.isClientSide) return InteractionResult.SUCCESS;
         if (context.getPlayer() == null) return InteractionResult.PASS;
         ItemStack card = context.getItemInHand();
         if (context.getPlayer().isShiftKeyDown()) {
             copyConfiguration(card, target, itemTarget);
-            show(context, "message.infwhat.replicator.copied", 0x55FF55);
+            show(context, "message.infwhat.replicator.copied", ChatFormatting.GREEN);
             return InteractionResult.CONSUME;
         }
 
         CompoundTag root = getCustomData(card);
-        if (root == null || !root.contains(TAG_CONFIGURATION)) {
-            show(context, "message.infwhat.replicator.empty", 0xFF5555);
+        if (root == null || !root.contains(TAG_CONFIGURATION, CompoundTag.TAG_COMPOUND)) {
+            show(context, "message.infwhat.replicator.empty", ChatFormatting.RED);
             return InteractionResult.CONSUME;
         }
-        CompoundTag config = root.getCompoundOrEmpty(TAG_CONFIGURATION);
+        CompoundTag config = root.getCompound(TAG_CONFIGURATION);
         String expectedType = itemTarget ? "item" : "fluid";
-        if (!config.getStringOr(KEY_TYPE, "").equals(expectedType)) {
-            show(context, "message.infwhat.replicator.type_mismatch", 0xFF5555);
+        if (!config.getString(KEY_TYPE).equals(expectedType)) {
+            show(context, "message.infwhat.replicator.type_mismatch", ChatFormatting.RED);
             return InteractionResult.CONSUME;
         }
 
-        boolean outputEnabled = config.getBooleanOr(KEY_OUTPUT_ENABLED, false);
-        int sideMask = config.getIntOr(KEY_OUTPUT_SIDES, 0);
+        boolean outputEnabled = config.getBoolean(KEY_OUTPUT_ENABLED);
+        int sideMask = config.getInt(KEY_OUTPUT_SIDES);
         if (itemTarget) {
             ((InfItemGeneratorBlockEntity) target).applyOutputConfiguration(
-                    outputEnabled, sideMask, config.getIntOr(KEY_OUTPUT_RATE, 1),
-                    config.getBooleanOr(KEY_INFINITE_MODE, false));
+                    outputEnabled, sideMask, config.getInt(KEY_OUTPUT_RATE),
+                    config.getBoolean(KEY_INFINITE_MODE));
         } else {
             ((InfFluidGeneratorBlockEntity) target).applyOutputConfiguration(
-                    outputEnabled, sideMask, config.getLongOr(KEY_OUTPUT_RATE, 1L));
+                    outputEnabled, sideMask, config.getLong(KEY_OUTPUT_RATE));
         }
-        show(context, "message.infwhat.replicator.pasted", 0x55FF55);
+        show(context, "message.infwhat.replicator.pasted", ChatFormatting.GREEN);
         return InteractionResult.CONSUME;
     }
 
@@ -95,30 +94,26 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
         CustomData.update(DataComponents.CUSTOM_DATA, card, tag -> tag.put(TAG_CONFIGURATION, config));
     }
 
-    private static void show(UseOnContext context, String translationKey, int color) {
-        if (context.getPlayer() instanceof net.minecraft.server.level.ServerPlayer player) {
-            player.connection.send(new ClientboundSetActionBarTextPacket(
-                    Component.translatable(translationKey)
-                            .withStyle(style -> style.withColor(TextColor.fromRgb(color)))));
-        }
+    private static void show(UseOnContext context, String translationKey, ChatFormatting color) {
+        context.getPlayer().displayClientMessage(Component.translatable(translationKey).withStyle(color), true);
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
-                                Consumer<Component> tooltip, TooltipFlag flag) {
-        super.appendHoverText(stack, context, display, tooltip, flag);
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                                List<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, tooltip, flag);
         CompoundTag root = getCustomData(stack);
-        if (root != null && root.contains(TAG_CONFIGURATION)) {
-            String type = root.getCompoundOrEmpty(TAG_CONFIGURATION).getStringOr(KEY_TYPE, "");
-            tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.saved",
+        if (root != null && root.contains(TAG_CONFIGURATION, CompoundTag.TAG_COMPOUND)) {
+            String type = root.getCompound(TAG_CONFIGURATION).getString(KEY_TYPE);
+            tooltip.add(Component.translatable("item.infwhat.infinite_source_config_replicator.saved",
                     Component.translatable("item.infwhat.infinite_source_config_replicator.type." + type))
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xAAAAAA))));
+                    .withStyle(ChatFormatting.GRAY));
         } else {
-            tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.empty")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xAAAAAA))));
+            tooltip.add(Component.translatable("item.infwhat.infinite_source_config_replicator.empty")
+                    .withStyle(ChatFormatting.GRAY));
         }
-        tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.instructions")
-                .withStyle(style -> style.withColor(TextColor.fromRgb(0x555555))));
+        tooltip.add(Component.translatable("item.infwhat.infinite_source_config_replicator.instructions")
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 
     private static CompoundTag getCustomData(ItemStack stack) {
