@@ -2,10 +2,10 @@ package com.bandybus.infwhat.item;
 
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
@@ -46,19 +46,19 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
         ItemStack card = context.getItemInHand();
         if (context.getPlayer().isShiftKeyDown()) {
             copyConfiguration(card, target, itemTarget);
-            show(context, "message.infwhat.replicator.copied", 0x55FF55);
+            show(context, "message.infwhat.replicator.copied", ChatFormatting.GREEN);
             return InteractionResult.CONSUME;
         }
 
         CompoundTag root = getCustomData(card);
         if (root == null || !root.contains(TAG_CONFIGURATION)) {
-            show(context, "message.infwhat.replicator.empty", 0xFF5555);
+            show(context, "message.infwhat.replicator.empty", ChatFormatting.RED);
             return InteractionResult.CONSUME;
         }
         CompoundTag config = root.getCompoundOrEmpty(TAG_CONFIGURATION);
         String expectedType = itemTarget ? "item" : "fluid";
         if (!config.getStringOr(KEY_TYPE, "").equals(expectedType)) {
-            show(context, "message.infwhat.replicator.type_mismatch", 0xFF5555);
+            show(context, "message.infwhat.replicator.type_mismatch", ChatFormatting.RED);
             return InteractionResult.CONSUME;
         }
 
@@ -72,7 +72,7 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
             ((InfFluidGeneratorBlockEntity) target).applyOutputConfiguration(
                     outputEnabled, sideMask, config.getLongOr(KEY_OUTPUT_RATE, 1L));
         }
-        show(context, "message.infwhat.replicator.pasted", 0x55FF55);
+        show(context, "message.infwhat.replicator.pasted", ChatFormatting.GREEN);
         return InteractionResult.CONSUME;
     }
 
@@ -95,11 +95,10 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
         CustomData.update(DataComponents.CUSTOM_DATA, card, tag -> tag.put(TAG_CONFIGURATION, config));
     }
 
-    private static void show(UseOnContext context, String translationKey, int color) {
+    private static void show(UseOnContext context, String translationKey, ChatFormatting color) {
         if (context.getPlayer() instanceof net.minecraft.server.level.ServerPlayer player) {
             player.connection.send(new ClientboundSetActionBarTextPacket(
-                    Component.translatable(translationKey)
-                            .withStyle(style -> style.withColor(TextColor.fromRgb(color)))));
+                    Component.translatable(translationKey).withStyle(color)));
         }
     }
 
@@ -112,13 +111,13 @@ public class InfiniteSourceConfigureReplicatorItem extends Item {
             String type = root.getCompoundOrEmpty(TAG_CONFIGURATION).getStringOr(KEY_TYPE, "");
             tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.saved",
                     Component.translatable("item.infwhat.infinite_source_config_replicator.type." + type))
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xAAAAAA))));
+                    .withStyle(ChatFormatting.GRAY));
         } else {
             tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.empty")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xAAAAAA))));
+                    .withStyle(ChatFormatting.GRAY));
         }
         tooltip.accept(Component.translatable("item.infwhat.infinite_source_config_replicator.instructions")
-                .withStyle(style -> style.withColor(TextColor.fromRgb(0x555555))));
+                .withStyle(ChatFormatting.DARK_GRAY));
     }
 
     private static CompoundTag getCustomData(ItemStack stack) {

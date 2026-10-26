@@ -14,14 +14,12 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidActionResult;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
-import net.neoforged.neoforge.transfer.access.ItemAccess;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.fluid.FluidUtil;
-import net.neoforged.neoforge.transfer.resource.ResourceStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;
 
 /**
  * Container menu for the Infinity Fluid Generator. There are no item slots for the machine
@@ -99,28 +97,33 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     }
 
     private void handleFluidContainer(Player player, int button) {
-        if (this.getCarried().isEmpty()) {
+        ItemStack carried = this.getCarried();
+        if (carried.isEmpty()) {
             return;
         }
-        // The cursor item is addressed through an ItemAccess so the container can transform
-        // itself (e.g. water bucket -> empty bucket) inside the transfer transaction. Only one
-        // container is converted per click; any produced overflow goes to the player inventory,
-        // matching the behaviour of the old FluidUtil container helpers.
-        ItemAccess cursorAccess = ItemAccess.forPlayerCursor(player, this).oneByOne();
-        ResourceHandler<FluidResource> containerHandler = cursorAccess.getCapability(Capabilities.Fluid.ITEM);
-        if (containerHandler == null) {
+        IFluidHandler tank = this.blockEntity.getFluidHandler();
+        FluidActionResult result = button == 1
+                ? FluidUtil.tryEmptyContainer(carried, tank, Integer.MAX_VALUE, player, true)
+                : FluidUtil.tryFillContainer(carried, tank, Integer.MAX_VALUE, player, true);
+        if (!result.isSuccess()) {
             return;
         }
-        ResourceHandler<FluidResource> tank = this.blockEntity.getResourceHandler();
-        // Right-click empties the held container into the tank, left-click fills it from the tank.
-        boolean fillContainer = button == 0;
-        ResourceStack<FluidResource> moved = fillContainer
-                ? ResourceHandlerUtil.moveFirst(tank, containerHandler, resource -> true, Integer.MAX_VALUE, null)
-                : ResourceHandlerUtil.moveFirst(containerHandler, tank, resource -> true, Integer.MAX_VALUE, null);
-        if (moved == null) {
-            return;
+
+        ItemStack resultStack = result.getResult();
+        if (carried.getCount() <= 1) {
+            this.setCarried(resultStack);
+        } else {
+            // Only one container is converted; the rest stay on the cursor and the produced
+            // container goes to the inventory (buckets do not stack once they hold a fluid).
+            ItemStack remaining = carried.copy();
+            remaining.shrink(1);
+            ItemStack leftover = ItemHandlerHelper.insertItemStacked(
+                    new PlayerMainInvWrapper(player.getInventory()), resultStack, false);
+            if (!leftover.isEmpty()) {
+                ItemHandlerHelper.giveItemToPlayer(player, leftover);
+            }
+            this.setCarried(remaining);
         }
-        FluidUtil.triggerSoundAndGameEvent(moved.resource(), this.level, player.position(), player, fillContainer);
         this.broadcastChanges();
     }
 

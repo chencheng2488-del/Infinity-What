@@ -16,19 +16,26 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import com.mojang.serialization.MapCodec;
 
 import javax.annotation.Nullable;
 
 /**
  * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
- * opens a small UI, while every side exposes a NeoForge {@code ResourceHandler<ItemResource>}
- * capability so pipe mods can pull from it. The server tick handles only the explicitly
- * configured active output; redstone does not affect this block.
+ * opens a small UI, while every side exposes a Forge {@code IItemHandler} capability so pipe
+ * mods can pull from it. The server tick handles only the explicitly configured active output;
+ * redstone does not affect this block.
  */
 public class InfItemGeneratorBlock extends BaseEntityBlock {
+    public static final MapCodec<InfItemGeneratorBlock> CODEC = simpleCodec(InfItemGeneratorBlock::new);
 
     public InfItemGeneratorBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override

@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "minecraft:iron_ingot"
+            "items": [
+              "minecraft:iron_ingot"
+            ]
           }
         ]
       },
@@ -28,5 +30,6 @@
     "recipes": [
       "infwhat:infinite_source_config_replicator"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }
