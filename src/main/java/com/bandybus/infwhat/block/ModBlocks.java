@@ -8,29 +8,25 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 import java.util.function.Supplier;
 
 public class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(Registries.BLOCK, InfinityWhat.MOD_ID);
+            DeferredRegister.create(ForgeRegistries.BLOCKS, InfinityWhat.MOD_ID);
 
-    public static final DeferredHolder<Block, Block> INF_FLUID_GENERATOR = registerBlock("inf_fluid_generator",
+    public static final RegistryObject<Block> INF_FLUID_GENERATOR = registerBlock("inf_fluid_generator",
             () -> new InfFluidGeneratorBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 10.0F)
                     .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()
-                    .setId(ResourceKey.create(Registries.BLOCK,
-                            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_fluid_generator")))));
+                    .requiresCorrectToolForDrops()));
 
-    public static final DeferredHolder<Block, Block> INF_ITEM_GENERATOR = registerBlock("inf_item_generator",
+    public static final RegistryObject<Block> INF_ITEM_GENERATOR = registerBlock("inf_item_generator",
             () -> new InfItemGeneratorBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 10.0F)
@@ -38,22 +34,17 @@ public class ModBlocks {
                     // Prevent a redstone line touching the machine from powering dust on its
                     // far side through the generator's otherwise solid block shape.
                     .isRedstoneConductor((state, level, pos) -> false)
-                    .requiresCorrectToolForDrops()
-                    .setId(ResourceKey.create(Registries.BLOCK,
-                            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "inf_item_generator")))));
+                    .requiresCorrectToolForDrops()));
 
-    private static <T extends Block> DeferredHolder<Block, T> registerBlock(String name, Supplier<T> block) {
-        DeferredHolder<Block, T> toReturn = BLOCKS.register(name, block);
+    private static <T extends Block> RegistryObject<T> registerBlock(String name, Supplier<T> block) {
+        RegistryObject<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);
         return toReturn;
     }
 
-    private static <T extends Block> void registerBlockItem(String name, DeferredHolder<Block, T> block) {
+    private static <T extends Block> void registerBlockItem(String name, RegistryObject<T> block) {
         // Spec: stack_size = 1
-        ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties().stacksTo(1)
-                .setId(ResourceKey.create(Registries.ITEM,
-                        Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, name)))
-                .useBlockDescriptionPrefix()));
+        ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties().stacksTo(1)));
     }
 
     public static void register(IEventBus eventBus) {

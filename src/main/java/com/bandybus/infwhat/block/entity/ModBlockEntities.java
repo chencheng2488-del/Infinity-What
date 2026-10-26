@@ -2,36 +2,31 @@ package com.bandybus.infwhat.block.entity;
 
 import com.bandybus.infwhat.InfinityWhat;
 import com.bandybus.infwhat.block.ModBlocks;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, InfinityWhat.MOD_ID);
+            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, InfinityWhat.MOD_ID);
 
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InfFluidGeneratorBlockEntity>> INF_FLUID_GENERATOR =
+    public static final RegistryObject<BlockEntityType<InfFluidGeneratorBlockEntity>> INF_FLUID_GENERATOR =
             BLOCK_ENTITIES.register("inf_fluid_generator", () ->
-                    new BlockEntityType<>(InfFluidGeneratorBlockEntity::new,
-                            ModBlocks.INF_FLUID_GENERATOR.get()));
+                    BlockEntityType.Builder.of(
+                            InfFluidGeneratorBlockEntity::new,
+                            ModBlocks.INF_FLUID_GENERATOR.get()
+                    ).build(null));
 
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InfItemGeneratorBlockEntity>> INF_ITEM_GENERATOR =
+    public static final RegistryObject<BlockEntityType<InfItemGeneratorBlockEntity>> INF_ITEM_GENERATOR =
             BLOCK_ENTITIES.register("inf_item_generator", () ->
-                    new BlockEntityType<>(InfItemGeneratorBlockEntity::new,
-                            ModBlocks.INF_ITEM_GENERATOR.get()));
+                    BlockEntityType.Builder.of(
+                            InfItemGeneratorBlockEntity::new,
+                            ModBlocks.INF_ITEM_GENERATOR.get()
+                    ).build(null));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
-    }
-
-    public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.Fluid.BLOCK, INF_FLUID_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
-        event.registerBlockEntity(Capabilities.Item.BLOCK, INF_ITEM_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
     }
 }

@@ -2,22 +2,18 @@ package com.bandybus.infwhat.item;
 
 import com.bandybus.infwhat.InfinityWhat;
 import net.minecraft.world.item.Item;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class ModItems {
     public static final DeferredRegister<Item> ITEMS =
-            DeferredRegister.create(Registries.ITEM, InfinityWhat.MOD_ID);
+            DeferredRegister.create(ForgeRegistries.ITEMS, InfinityWhat.MOD_ID);
 
-    public static final DeferredHolder<Item, Item> INFINITE_SOURCE_CONFIG_REPLICATOR = ITEMS.register(
+    public static final RegistryObject<Item> INFINITE_SOURCE_CONFIG_REPLICATOR = ITEMS.register(
             "infinite_source_config_replicator",
-            () -> new InfiniteSourceConfigureReplicatorItem(new Item.Properties().stacksTo(1)
-                    .setId(ResourceKey.create(Registries.ITEM,
-                            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "infinite_source_config_replicator")))));
+            () -> new InfiniteSourceConfigureReplicatorItem(new Item.Properties().stacksTo(1)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

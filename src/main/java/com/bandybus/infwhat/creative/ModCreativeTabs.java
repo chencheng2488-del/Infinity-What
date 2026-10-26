@@ -7,16 +7,16 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.DeferredHolder;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 /** Dedicated creative tab for all Infinity What items. */
 public final class ModCreativeTabs {
     private static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, InfinityWhat.MOD_ID);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> INFINITY_WHAT = TABS.register(
+    public static final RegistryObject<CreativeModeTab> INFINITY_WHAT = TABS.register(
             "infinity_what", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.infwhat.infinity_what"))
                     .icon(() -> new ItemStack(ModBlocks.INF_ITEM_GENERATOR.get()))
