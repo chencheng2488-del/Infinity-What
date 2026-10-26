@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.TextColor;
-import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.glfw.GLFW;
 
 /** Item generator main page and the shared active-output I/O page. */
 public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGeneratorMenu> {
@@ -314,12 +314,11 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;

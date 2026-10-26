@@ -16,13 +16,20 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import com.mojang.serialization.MapCodec;
 
 import javax.annotation.Nullable;
 
 public class InfFluidGeneratorBlock extends BaseEntityBlock {
+    public static final MapCodec<InfFluidGeneratorBlock> CODEC = simpleCodec(InfFluidGeneratorBlock::new);
 
     public InfFluidGeneratorBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override

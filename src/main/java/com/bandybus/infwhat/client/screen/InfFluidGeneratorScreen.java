@@ -23,7 +23,7 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.sounds.SoundEvents;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.core.registries.BuiltInRegistries;
-import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.glfw.GLFW;
 
 import java.math.BigDecimal;
 
@@ -363,12 +363,11 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;
