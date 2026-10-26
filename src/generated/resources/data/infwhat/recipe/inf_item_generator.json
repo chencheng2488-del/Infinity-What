@@ -1,4 +1,4 @@
-{
+﻿{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -18,7 +18,7 @@
     "IDI"
   ],
   "result": {
-    "item": "infwhat:inf_item_generator"
+    "id": "infwhat:inf_item_generator"
   },
   "show_notification": true
 }
