@@ -8,7 +8,7 @@ import com.bandybus.infwhat.menu.InfItemGeneratorMenu;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -24,6 +24,10 @@ public final class ModNetworking {
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(SetOutputRatePayload.TYPE, SetOutputRatePayload.STREAM_CODEC,
                 ModNetworking::handleSetRate);
+    }
+
+    public static void sendOutputRate(int containerId, boolean fluidGenerator, long amount) {
+        PacketDistributor.sendToServer(new SetOutputRatePayload(containerId, fluidGenerator, amount));
     }
 
     private static void handleSetRate(SetOutputRatePayload payload, IPayloadContext context) {
@@ -58,7 +62,7 @@ public final class ModNetworking {
     public record SetOutputRatePayload(int containerId, boolean fluidGenerator, long amount)
             implements CustomPacketPayload {
         public static final Type<SetOutputRatePayload> TYPE = new Type<>(
-                Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "set_output_rate"));
+                new ResourceLocation(InfinityWhat.MOD_ID, "set_output_rate"));
         public static final StreamCodec<RegistryFriendlyByteBuf, SetOutputRatePayload> STREAM_CODEC =
                 StreamCodec.of((buffer, payload) -> {
                     buffer.writeVarInt(payload.containerId);
@@ -75,7 +79,7 @@ public final class ModNetworking {
     public record OutputRateResultPayload(int containerId, boolean fluidGenerator,
                                           boolean success, long amount) implements CustomPacketPayload {
         public static final Type<OutputRateResultPayload> TYPE = new Type<>(
-                Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "output_rate_result"));
+                new ResourceLocation(InfinityWhat.MOD_ID, "output_rate_result"));
         public static final StreamCodec<RegistryFriendlyByteBuf, OutputRateResultPayload> STREAM_CODEC =
                 StreamCodec.of((buffer, payload) -> {
                     buffer.writeVarInt(payload.containerId);

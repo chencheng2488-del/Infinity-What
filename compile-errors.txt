@@ -1,0 +1,550 @@
+> Task :createMinecraftArtifacts UP-TO-DATE
+
+> Task :compileJava FAILED
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:13: 错误: 找不到符号
+@Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    ^
+  符号:   类 EventBusSubscriber
+  位置: @interface Mod
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:18: 错误: 找不到符号
+@Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+    ^
+  符号:   类 EventBusSubscriber
+  位置: @interface Mod
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:15: 错误: 找不到符号
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlerEvent;
+                                           ^
+  符号:   类 RegisterPayloadHandlerEvent
+  位置: 程序包 net.neoforged.neoforge.network.event
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:16: 错误: 找不到符号
+import net.neoforged.neoforge.network.handling.PlayPayloadContext;
+                                              ^
+  符号:   类 PlayPayloadContext
+  位置: 程序包 net.neoforged.neoforge.network.handling
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:17: 错误: 找不到符号
+import net.neoforged.neoforge.network.registration.IPayloadRegistrar;
+                                                  ^
+  符号:   类 IPayloadRegistrar
+  位置: 程序包 net.neoforged.neoforge.network.registration
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:26: 错误: 找不到符号
+    public static void registerPayloads(RegisterPayloadHandlerEvent event) {
+                                        ^
+  符号:   类 RegisterPayloadHandlerEvent
+  位置: 类 ModNetworking
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:38: 错误: 找不到符号
+    private static void handleSetRate(SetOutputRatePayload payload, PlayPayloadContext context) {
+                                                                    ^
+  符号:   类 PlayPayloadContext
+  位置: 类 ModNetworking
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:69: 错误: 找不到符号
+    private static void handleRateResult(OutputRateResultPayload payload, PlayPayloadContext context) {
+                                                                          ^
+  符号:   类 PlayPayloadContext
+  位置: 类 ModNetworking
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:13: 错误: 找不到符号
+@Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+                                                              ^
+  符号:   变量 EventBusSubscriber
+  位置: @interface Mod
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:18: 错误: 找不到符号
+@Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+                                                              ^
+  符号:   变量 EventBusSubscriber
+  位置: @interface Mod
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:185: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:187: 错误: 无法将类 BlockEntity中的方法 saveAdditional应用到给定类型;
+        super.saveAdditional(tag);
+             ^
+  需要: CompoundTag,Provider
+  找到:    CompoundTag
+  原因: 实际参数列表和形式参数列表长度不同
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:190: 错误: 找不到符号
+            this.tank.writeToNBT(tankTag);
+                     ^
+  符号:   方法 writeToNBT(CompoundTag)
+  位置: 类型为FluidStack的变量 tank
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:199: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:201: 错误: 找不到符号
+        super.load(tag);
+             ^
+  符号: 方法 load(CompoundTag)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:205: 错误: 找不到符号
+            FluidStack loaded = FluidStack.loadFluidStackFromNBT(tag.getCompound(KEY_TANK));
+                                          ^
+  符号:   方法 loadFluidStackFromNBT(CompoundTag)
+  位置: 类 FluidStack
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:233: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:240: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:305: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                FluidStack offer = new FluidStack(this.tank, offered);
+                                   ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:350: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+            return new FluidStack(InfFluidGeneratorBlockEntity.this.tank, amount);
+                   ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:367: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+            return stored.isEmpty() || stored.isFluidEqual(stack);
+                                             ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:377: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+            if (!stored.isEmpty() && !stored.isFluidEqual(resource)) {
+                                            ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:384: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                    InfFluidGeneratorBlockEntity.this.tank = new FluidStack(resource, 1);
+                                                             ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:400: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                    InfFluidGeneratorBlockEntity.this.tank = new FluidStack(resource, accepted);
+                                                             ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:412: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+                    || !InfFluidGeneratorBlockEntity.this.tank.isFluidEqual(resource)) {
+                                                              ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:426: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                return new FluidStack(stored, maxDrain);
+                       ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:429: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+            FluidStack result = new FluidStack(stored, drained);
+                                ^
+    构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+      (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+    构造器 FluidStack.FluidStack(Fluid,int)不适用
+      (参数不匹配; FluidStack无法转换为Fluid)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:229: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:231: 错误: 无法将类 BlockEntity中的方法 saveAdditional应用到给定类型;
+        super.saveAdditional(tag);
+             ^
+  需要: CompoundTag,Provider
+  找到:    CompoundTag
+  原因: 实际参数列表和形式参数列表长度不同
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:234: 错误: 不兼容的类型: CompoundTag无法转换为Provider
+            tag.put(KEY_ITEM, stored.save(new CompoundTag()));
+                                          ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:242: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:244: 错误: 找不到符号
+        super.load(tag);
+             ^
+  符号: 方法 load(CompoundTag)
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:247: 错误: 找不到符号
+            ItemStack loaded = ItemStack.of(tag.getCompound(KEY_ITEM));
+                                        ^
+  符号:   方法 of(CompoundTag)
+  位置: 类 ItemStack
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:266: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:273: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:320: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                return ItemHandlerHelper.copyStackWithSize(stored, Integer.MAX_VALUE);
+                                        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:348: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                return ItemHandlerHelper.copyStackWithSize(stored, Math.min(amount, stored.getMaxStackSize()));
+                                        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:419: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                return ItemHandlerHelper.copyStackWithSize(existing, Math.min(amount, existing.getMaxStackSize()));
+                                        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\InfFluidGeneratorBlock.java:65: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\InfItemGeneratorBlock.java:71: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:20: 错误: <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>) 在 MenuScreens 中是 private 访问控制
+            MenuScreens.register(
+                       ^
+  其中, M,U是类型变量:
+    M扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的AbstractContainerMenu
+    U扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的Screen,MenuAccess<M>
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:23: 错误: <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>) 在 MenuScreens 中是 private 访问控制
+            MenuScreens.register(
+                       ^
+  其中, M,U是类型变量:
+    M扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的AbstractContainerMenu
+    U扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的Screen,MenuAccess<M>
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\screen\InfFluidGeneratorScreen.java:222: 警告: [removal] FluidStack 中的 getDisplayName() 已过时, 且标记为待删除
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid_name", stack.getDisplayName()),
+                                                                                          ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\menu\InfItemGeneratorMenu.java:241: 错误: 找不到符号
+        } else if (ItemStack.isSameItemSameTags(carried, taken)) {
+                            ^
+  符号:   方法 isSameItemSameTags(ItemStack,ItemStack)
+  位置: 类 ItemStack
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\config\InfinityWhatConfig.java:76: 警告: [removal] ModLoadingContext 中的 registerConfig(Type,IConfigSpec<?>) 已过时, 且标记为待删除
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC);
+                               ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:32: 错误: 无法将类 LootTableProvider中的构造器 LootTableProvider应用到给定类型;
+        generator.addProvider(event.includeServer(), new LootTableProvider(
+                                                     ^
+  需要: PackOutput,Set<ResourceKey<LootTable>>,List<SubProviderEntry>,CompletableFuture<Provider>
+  找到:    PackOutput,Set<Object>,List<SubProviderEntry>
+  原因: 实际参数列表和形式参数列表长度不同
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:49: 错误: 找不到符号
+        CompoundTag root = card.getTag();
+                               ^
+  符号:   方法 getTag()
+  位置: 类型为ItemStack的变量 card
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:91: 错误: 找不到符号
+        card.getOrCreateTag().put(TAG_CONFIGURATION, config);
+            ^
+  符号:   方法 getOrCreateTag()
+  位置: 类型为ItemStack的变量 card
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:98: 错误: 方法不会覆盖或实现超类型的方法
+    @Override
+    ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:101: 错误: 不兼容的类型: Level无法转换为TooltipContext
+        super.appendHoverText(stack, level, tooltip, flag);
+                                     ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:102: 错误: 找不到符号
+        CompoundTag root = stack.getTag();
+                                ^
+  符号:   方法 getTag()
+  位置: 类型为ItemStack的变量 stack
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:27: 错误: 找不到符号
+        IPayloadRegistrar registrar = event.registrar(InfinityWhat.MOD_ID).versioned("1");
+        ^
+  符号:   类 IPayloadRegistrar
+  位置: 类 ModNetworking
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:35: 错误: 找不到符号
+        PacketDistributor.SERVER.noArg().send(new SetOutputRatePayload(containerId, fluidGenerator, amount));
+                         ^
+  符号:   变量 SERVER
+  位置: 类 PacketDistributor
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:64: 错误: 找不到符号
+            PacketDistributor.PLAYER.with(player).send(new OutputRateResultPayload(
+                             ^
+  符号:   变量 PLAYER
+  位置: 类 PacketDistributor
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:74: 错误: SetOutputRatePayload不是抽象的, 并且未覆盖CustomPacketPayload中的抽象方法type()
+    private record SetOutputRatePayload(int containerId, boolean fluidGenerator, long amount)
+            ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:80: 错误: 方法不会覆盖或实现超类型的方法
+        @Override
+        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:87: 错误: 方法不会覆盖或实现超类型的方法
+        @Override
+        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:93: 错误: OutputRateResultPayload不是抽象的, 并且未覆盖CustomPacketPayload中的抽象方法type()
+    private record OutputRateResultPayload(int containerId, boolean fluidGenerator,
+            ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:99: 错误: 方法不会覆盖或实现超类型的方法
+        @Override
+        ^
+D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:107: 错误: 方法不会覆盖或实现超类型的方法
+        @Override
+        ^
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+注: 某些消息已经过简化; 请使用 -Xdiags:verbose 重新编译以获得完整输出
+52 个错误
+8 个警告
+
+[Incubating] Problems report is available at: file:///D:/JavaYY/infinity_what-source/InfWh%20NeoForge%201.20.6/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler output below.
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:187: 错误: 无法将类 BlockEntity中的方法 saveAdditional应用到给定类型;
+          super.saveAdditional(tag);
+               ^
+    需要: CompoundTag,Provider
+    找到:    CompoundTag
+    原因: 实际参数列表和形式参数列表长度不同
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:231: 错误: 无法将类 BlockEntity中的方法 saveAdditional应用到给定类型;
+          super.saveAdditional(tag);
+               ^
+    需要: CompoundTag,Provider
+    找到:    CompoundTag
+    原因: 实际参数列表和形式参数列表长度不同
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:32: 错误: 无法将类 LootTableProvider中的构造器 LootTableProvider应用到给定类型;
+          generator.addProvider(event.includeServer(), new LootTableProvider(
+                                                       ^
+    需要: PackOutput,Set<ResourceKey<LootTable>>,List<SubProviderEntry>,CompletableFuture<Provider>
+    找到:    PackOutput,Set<Object>,List<SubProviderEntry>
+    原因: 实际参数列表和形式参数列表长度不同
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:305: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                  FluidStack offer = new FluidStack(this.tank, offered);
+                                     ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:350: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+              return new FluidStack(InfFluidGeneratorBlockEntity.this.tank, amount);
+                     ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:384: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                      InfFluidGeneratorBlockEntity.this.tank = new FluidStack(resource, 1);
+                                                               ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:400: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                      InfFluidGeneratorBlockEntity.this.tank = new FluidStack(resource, accepted);
+                                                               ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:426: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+                  return new FluidStack(stored, maxDrain);
+                         ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:429: 错误: 对于FluidStack(FluidStack,int), 找不到合适的构造器
+              FluidStack result = new FluidStack(stored, drained);
+                                  ^
+      构造器 FluidStack.FluidStack(Holder<Fluid>,int)不适用
+        (参数不匹配; FluidStack无法转换为Holder<Fluid>)
+      构造器 FluidStack.FluidStack(Fluid,int)不适用
+        (参数不匹配; FluidStack无法转换为Fluid)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:201: 错误: 找不到符号
+          super.load(tag);
+               ^
+    符号: 方法 load(CompoundTag)
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:244: 错误: 找不到符号
+          super.load(tag);
+               ^
+    符号: 方法 load(CompoundTag)
+  注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:74: 错误: SetOutputRatePayload不是抽象的, 并且未覆盖CustomPacketPayload中的抽象方法type()
+      private record SetOutputRatePayload(int containerId, boolean fluidGenerator, long amount)
+              ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:93: 错误: OutputRateResultPayload不是抽象的, 并且未覆盖CustomPacketPayload中的抽象方法type()
+      private record OutputRateResultPayload(int containerId, boolean fluidGenerator,
+              ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:234: 错误: 不兼容的类型: CompoundTag无法转换为Provider
+              tag.put(KEY_ITEM, stored.save(new CompoundTag()));
+                                            ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:101: 错误: 不兼容的类型: Level无法转换为TooltipContext
+          super.appendHoverText(stack, level, tooltip, flag);
+                                       ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:13: 错误: 找不到符号
+  @Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+      ^
+    符号:   类 EventBusSubscriber
+    位置: @interface Mod
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:18: 错误: 找不到符号
+  @Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+      ^
+    符号:   类 EventBusSubscriber
+    位置: @interface Mod
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:15: 错误: 找不到符号
+  import net.neoforged.neoforge.network.event.RegisterPayloadHandlerEvent;
+                                             ^
+    符号:   类 RegisterPayloadHandlerEvent
+    位置: 程序包 net.neoforged.neoforge.network.event
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:16: 错误: 找不到符号
+  import net.neoforged.neoforge.network.handling.PlayPayloadContext;
+                                                ^
+    符号:   类 PlayPayloadContext
+    位置: 程序包 net.neoforged.neoforge.network.handling
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:17: 错误: 找不到符号
+  import net.neoforged.neoforge.network.registration.IPayloadRegistrar;
+                                                    ^
+    符号:   类 IPayloadRegistrar
+    位置: 程序包 net.neoforged.neoforge.network.registration
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:26: 错误: 找不到符号
+      public static void registerPayloads(RegisterPayloadHandlerEvent event) {
+                                          ^
+    符号:   类 RegisterPayloadHandlerEvent
+    位置: 类 ModNetworking
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:38: 错误: 找不到符号
+      private static void handleSetRate(SetOutputRatePayload payload, PlayPayloadContext context) {
+                                                                      ^
+    符号:   类 PlayPayloadContext
+    位置: 类 ModNetworking
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:69: 错误: 找不到符号
+      private static void handleRateResult(OutputRateResultPayload payload, PlayPayloadContext context) {
+                                                                            ^
+    符号:   类 PlayPayloadContext
+    位置: 类 ModNetworking
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:13: 错误: 找不到符号
+  @Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+                                                                ^
+    符号:   变量 EventBusSubscriber
+    位置: @interface Mod
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\datagen\ModDataGenerators.java:18: 错误: 找不到符号
+  @Mod.EventBusSubscriber(modid = InfinityWhat.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+                                                                ^
+    符号:   变量 EventBusSubscriber
+    位置: @interface Mod
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:27: 错误: 找不到符号
+          IPayloadRegistrar registrar = event.registrar(InfinityWhat.MOD_ID).versioned("1");
+          ^
+    符号:   类 IPayloadRegistrar
+    位置: 类 ModNetworking
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:35: 错误: 找不到符号
+          PacketDistributor.SERVER.noArg().send(new SetOutputRatePayload(containerId, fluidGenerator, amount));
+                           ^
+    符号:   变量 SERVER
+    位置: 类 PacketDistributor
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:64: 错误: 找不到符号
+              PacketDistributor.PLAYER.with(player).send(new OutputRateResultPayload(
+                               ^
+    符号:   变量 PLAYER
+    位置: 类 PacketDistributor
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:20: 错误: <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>) 在 MenuScreens 中是 private 访问控制
+              MenuScreens.register(
+                         ^
+    其中, M,U是类型变量:
+      M扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的AbstractContainerMenu
+      U扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的Screen,MenuAccess<M>
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\ModClientEvents.java:23: 错误: <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>) 在 MenuScreens 中是 private 访问控制
+              MenuScreens.register(
+                         ^
+    其中, M,U是类型变量:
+      M扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的AbstractContainerMenu
+      U扩展已在方法 <M,U>register(MenuType<? extends M>,ScreenConstructor<M,U>)中声明的Screen,MenuAccess<M>
+  注: 某些输入文件使用或覆盖了已过时的 API。
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:185: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:199: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:233: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:240: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:229: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:242: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:266: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:273: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\InfFluidGeneratorBlock.java:65: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\InfItemGeneratorBlock.java:71: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:98: 错误: 方法不会覆盖或实现超类型的方法
+      @Override
+      ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:80: 错误: 方法不会覆盖或实现超类型的方法
+          @Override
+          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:87: 错误: 方法不会覆盖或实现超类型的方法
+          @Override
+          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:99: 错误: 方法不会覆盖或实现超类型的方法
+          @Override
+          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\network\ModNetworking.java:107: 错误: 方法不会覆盖或实现超类型的方法
+          @Override
+          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:367: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+              return stored.isEmpty() || stored.isFluidEqual(stack);
+                                               ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:377: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+              if (!stored.isEmpty() && !stored.isFluidEqual(resource)) {
+                                              ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:412: 警告: [removal] FluidStack 中的 isFluidEqual(FluidStack) 已过时, 且标记为待删除
+                      || !InfFluidGeneratorBlockEntity.this.tank.isFluidEqual(resource)) {
+                                                                ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:320: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                  return ItemHandlerHelper.copyStackWithSize(stored, Integer.MAX_VALUE);
+                                          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:348: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                  return ItemHandlerHelper.copyStackWithSize(stored, Math.min(amount, stored.getMaxStackSize()));
+                                          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:419: 警告: [removal] ItemHandlerHelper 中的 copyStackWithSize(ItemStack,int) 已过时, 且标记为待删除
+                  return ItemHandlerHelper.copyStackWithSize(existing, Math.min(amount, existing.getMaxStackSize()));
+                                          ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\client\screen\InfFluidGeneratorScreen.java:222: 警告: [removal] FluidStack 中的 getDisplayName() 已过时, 且标记为待删除
+                  Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid_name", stack.getDisplayName()),
+                                                                                            ^
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\config\InfinityWhatConfig.java:76: 警告: [removal] ModLoadingContext 中的 registerConfig(Type,IConfigSpec<?>) 已过时, 且标记为待删除
+          ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC);
+                                 ^
+  注: 某些消息已经过简化; 请使用 -Xdiags:verbose 重新编译以获得完整输出
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:190: 错误: 找不到符号
+              this.tank.writeToNBT(tankTag);
+                       ^
+    符号:   方法 writeToNBT(CompoundTag)
+    位置: 类型为FluidStack的变量 tank
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfFluidGeneratorBlockEntity.java:205: 错误: 找不到符号
+              FluidStack loaded = FluidStack.loadFluidStackFromNBT(tag.getCompound(KEY_TANK));
+                                            ^
+    符号:   方法 loadFluidStackFromNBT(CompoundTag)
+    位置: 类 FluidStack
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\block\entity\InfItemGeneratorBlockEntity.java:247: 错误: 找不到符号
+              ItemStack loaded = ItemStack.of(tag.getCompound(KEY_ITEM));
+                                          ^
+    符号:   方法 of(CompoundTag)
+    位置: 类 ItemStack
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\menu\InfItemGeneratorMenu.java:241: 错误: 找不到符号
+          } else if (ItemStack.isSameItemSameTags(carried, taken)) {
+                              ^
+    符号:   方法 isSameItemSameTags(ItemStack,ItemStack)
+    位置: 类 ItemStack
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:49: 错误: 找不到符号
+          CompoundTag root = card.getTag();
+                                 ^
+    符号:   方法 getTag()
+    位置: 类型为ItemStack的变量 card
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:91: 错误: 找不到符号
+          card.getOrCreateTag().put(TAG_CONFIGURATION, config);
+              ^
+    符号:   方法 getOrCreateTag()
+    位置: 类型为ItemStack的变量 card
+  D:\JavaYY\infinity_what-source\InfWh NeoForge 1.20.6\src\main\java\com\bandybus\infwhat\item\InfiniteSourceConfigureReplicatorItem.java:102: 错误: 找不到符号
+          CompoundTag root = stack.getTag();
+                                  ^
+    符号:   方法 getTag()
+    位置: 类型为ItemStack的变量 stack
+  52 个错误
+  8 个警告
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights.
+
+BUILD FAILED in 13s
+2 actionable tasks: 1 executed, 1 up-to-date
