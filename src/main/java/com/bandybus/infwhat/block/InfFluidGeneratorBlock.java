@@ -16,13 +16,20 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import com.mojang.serialization.MapCodec;
 
 import javax.annotation.Nullable;
 
 public class InfFluidGeneratorBlock extends BaseEntityBlock {
+    public static final MapCodec<InfFluidGeneratorBlock> CODEC = simpleCodec(InfFluidGeneratorBlock::new);
 
     public InfFluidGeneratorBlock(Properties properties) {
         super(properties);
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override
@@ -40,7 +47,7 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> blockEntityType) {
-        if (level.isClientSide()) {
+        if (level.isClientSide) {
             return null;
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_FLUID_GENERATOR.get(),
@@ -53,7 +60,7 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
         if (player.getMainHandItem().is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get())) {
             return InteractionResult.PASS;
         }
-        if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+        if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof InfFluidGeneratorBlockEntity generator) {
                 // Opens the fluid GUI. Pipes and cables interact through the fluid
@@ -62,6 +69,6 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
             }
         }
         // Always report success on the client so the arm swings; the server opens the menu.
-        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
