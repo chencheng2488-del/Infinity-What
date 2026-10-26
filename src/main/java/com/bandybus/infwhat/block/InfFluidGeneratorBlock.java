@@ -5,6 +5,7 @@ import com.bandybus.infwhat.block.entity.ModBlockEntities;
 import com.bandybus.infwhat.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.network.NetworkHooks;
 
 import javax.annotation.Nullable;
 
@@ -40,28 +42,35 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> blockEntityType) {
-        if (level.isClientSide()) {
+        if (level.isClientSide) {
             return null;
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_FLUID_GENERATOR.get(),
                 InfFluidGeneratorBlockEntity::serverTick);
     }
 
+    @Nullable
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-                                                BlockHitResult hit) {
-        if (player.getMainHandItem().is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get())) {
+    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof MenuProvider provider ? provider : null;
+    }
+
+    @Override
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                 InteractionHand hand, BlockHitResult hit) {
+        if (player.getItemInHand(hand).is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get())) {
             return InteractionResult.PASS;
         }
-        if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+        if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof InfFluidGeneratorBlockEntity generator) {
                 // Opens the fluid GUI. Pipes and cables interact through the fluid
                 // capability instead of this method, so this does not affect them.
-                serverPlayer.openMenu(generator, pos);
+                NetworkHooks.openScreen(serverPlayer, generator, pos);
             }
         }
         // Always report success on the client so the arm swings; the server opens the menu.
-        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }

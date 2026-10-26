@@ -9,7 +9,6 @@ import com.bandybus.infwhat.menu.ModMenuTypes;
 import com.bandybus.infwhat.network.ModNetworking;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
-import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.slf4j.Logger;
@@ -42,17 +41,16 @@ public class InfinityWhat {
             "ae2", "mekanism", "pipez", "gtm", "gregtech", "create"
     };
 
-    public InfinityWhat(IEventBus modEventBus, ModContainer modContainer) {
+    public InfinityWhat(IEventBus modEventBus) {
 
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
         ModBlockEntities.register(modEventBus);
-        modEventBus.addListener(ModBlockEntities::registerCapabilities);
         ModMenuTypes.register(modEventBus);
-        modEventBus.addListener(ModNetworking::registerPayloads);
+        ModNetworking.register();
 
-        InfinityWhatConfig.register(modContainer);
+        InfinityWhatConfig.register();
 
         modEventBus.addListener(this::commonSetup);
     }

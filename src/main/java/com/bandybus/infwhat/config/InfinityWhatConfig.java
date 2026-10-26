@@ -1,8 +1,8 @@
 package com.bandybus.infwhat.config;
 
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
-import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.config.ModConfig;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -92,17 +92,17 @@ public class InfinityWhatConfig {
     }
 
     /** Whether the given item id may be inserted into the item generator. */
-    public static boolean isItemAllowed(@Nullable Identifier itemId) {
+    public static boolean isItemAllowed(@Nullable ResourceLocation itemId) {
         return isAllowed(COMMON.itemFilterMode.get(), COMMON.itemFilterList.get(), itemId);
     }
 
     /** Whether the given fluid id may be inserted into the fluid generator. */
-    public static boolean isFluidAllowed(@Nullable Identifier fluidId) {
+    public static boolean isFluidAllowed(@Nullable ResourceLocation fluidId) {
         return isAllowed(COMMON.fluidFilterMode.get(), COMMON.fluidFilterList.get(), fluidId);
     }
 
     private static boolean isAllowed(FilterMode mode, List<? extends String> list,
-                                     @Nullable Identifier id) {
+                                     @Nullable ResourceLocation id) {
         if (id == null) {
             return true;
         }
@@ -110,10 +110,8 @@ public class InfinityWhatConfig {
         return mode == FilterMode.BLACKLIST ? !listed : listed;
     }
 
-    public static void register(ModContainer modContainer) {
-        // 26.3 removed ModConfig.Type.COMMON; LOCAL is its direct replacement: loaded on both
-        // sides, stored in the global config directory and not synced.
-        modContainer.registerConfig(ModConfig.Type.LOCAL, SPEC, "infwhat.toml");
+    public static void register() {
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC, "infwhat.toml");
     }
 
     private InfinityWhatConfig() {
