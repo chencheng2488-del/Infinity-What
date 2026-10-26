@@ -1,4 +1,4 @@
-{
+﻿{
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
@@ -18,7 +18,7 @@
     " I "
   ],
   "result": {
-    "item": "infwhat:infinite_source_config_replicator"
+    "id": "infwhat:infinite_source_config_replicator"
   },
   "show_notification": true
 }
