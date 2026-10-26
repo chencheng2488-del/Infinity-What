@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "minecraft:chest"
+            "items": [
+              "minecraft:chest"
+            ]
           }
         ]
       },
@@ -28,5 +30,6 @@
     "recipes": [
       "infwhat:inf_item_generator"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }
