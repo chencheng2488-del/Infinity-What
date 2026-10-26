@@ -25,29 +25,44 @@
 | Minecraft | 加载器 | 加载器版本 |
 |---|---|---|
 | 1.20.1 | Forge | 47.4.10+ |
+| 1.20.1 | Fabric | 0.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
+| 1.20.2 | Fabric | 0.20.1 |
 | 1.20.2 | NeoForge | 20.2.93 |
+| 1.20.4 | Fabric | 0.20.1 |
 | 1.20.4 | NeoForge | 20.4.253 |
+| 1.20.6 | Fabric | 0.20.1 |
 | 1.20.6 | NeoForge | 20.6.144 |
+| 1.21 | Fabric | 0.20.1 |
 | 1.21 | NeoForge | 21.0.167 |
+| 1.21.1 | Fabric | 0.20.1 |
 | 1.21.1 | NeoForge | 21.1.262 |
+| 1.21.4 | Fabric | 0.20.1 |
 | 1.21.4 | NeoForge | 21.4.161 |
+| 1.21.5 | Fabric | 0.20.1 |
 | 1.21.5 | NeoForge | 21.5.101 |
+| 1.21.8 | Fabric | 0.20.1 |
 | 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.10 | Fabric | 0.20.1 |
 | 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.11 | Fabric | 0.20.1 |
 | 1.21.11 | NeoForge | 21.11.48 |
+| 26.1 | Fabric | 0.20.1 |
 | 26.1 | NeoForge | 26.1.2.121 |
+| 26.1.2 | Fabric | 0.20.1 |
 | 26.1.2 | NeoForge | 26.1.2.121 |
+| 26.2 | Fabric | 0.20.1 |
 | 26.2 | NeoForge | 26.2.0.93 |
+| 26.3 | Fabric | 0.20.1 |
 | 26.3 | NeoForge | 26.3.0.83 |
 
 ### 安装
 
-1. 安装与你的游戏版本对应的 Minecraft Forge 或 NeoForge。
+1. 安装与你的游戏版本对应的 Minecraft Forge、NeoForge 或 Fabric。
 2. 将匹配的 jar 放入 `mods` 文件夹。
 3. 启动游戏。首次启动时会生成 `config/infwhat.toml`。
 
-无需其他模组作为前置。
+Forge / NeoForge 版无需前置；Fabric 版需要 **Fabric API**（选对应 MC 版本的最新版即可；本项目实测 1.20.1=0.92.12、1.21.1=0.116.17、26.3=0.165.0）。
 
 ### 配置
 
@@ -120,29 +135,44 @@ Every branch of this repository is a **complete, standalone project for one Mine
 | Minecraft | Loader | Loader version |
 |---|---|---|
 | 1.20.1 | Forge | 47.4.10+ |
+| 1.20.1 | Fabric | 0.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
+| 1.20.2 | Fabric | 0.20.1 |
 | 1.20.2 | NeoForge | 20.2.93 |
+| 1.20.4 | Fabric | 0.20.1 |
 | 1.20.4 | NeoForge | 20.4.253 |
+| 1.20.6 | Fabric | 0.20.1 |
 | 1.20.6 | NeoForge | 20.6.144 |
+| 1.21 | Fabric | 0.20.1 |
 | 1.21 | NeoForge | 21.0.167 |
+| 1.21.1 | Fabric | 0.20.1 |
 | 1.21.1 | NeoForge | 21.1.262 |
+| 1.21.4 | Fabric | 0.20.1 |
 | 1.21.4 | NeoForge | 21.4.161 |
+| 1.21.5 | Fabric | 0.20.1 |
 | 1.21.5 | NeoForge | 21.5.101 |
+| 1.21.8 | Fabric | 0.20.1 |
 | 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.10 | Fabric | 0.20.1 |
 | 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.11 | Fabric | 0.20.1 |
 | 1.21.11 | NeoForge | 21.11.48 |
+| 26.1 | Fabric | 0.20.1 |
 | 26.1 | NeoForge | 26.1.2.121 |
+| 26.1.2 | Fabric | 0.20.1 |
 | 26.1.2 | NeoForge | 26.1.2.121 |
+| 26.2 | Fabric | 0.20.1 |
 | 26.2 | NeoForge | 26.2.0.93 |
+| 26.3 | Fabric | 0.20.1 |
 | 26.3 | NeoForge | 26.3.0.83 |
 
 ### Installation
 
-1. Install Minecraft Forge or NeoForge for your game version.
+1. Install Minecraft Forge, NeoForge or Fabric for your game version.
 2. Drop the matching jar into your `mods` folder.
 3. Launch the game. `config/infwhat.toml` is generated on first start.
 
-No other mods are required.
+The Forge / NeoForge builds have no dependencies; the Fabric builds require **Fabric API** (use the latest build for your Minecraft version; tested with 0.92.12 for 1.20.1, 0.116.17 for 1.21.1 and 0.165.0 for 26.3).
 
 ### Configuration
 
