@@ -15,7 +15,7 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipes": "infwhat:inf_item_generator"
+        "recipe": "infwhat:inf_item_generator"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
