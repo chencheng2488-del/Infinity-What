@@ -16,14 +16,14 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.sounds.SoundEvents;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.core.registries.BuiltInRegistries;
-import org.lwjgl.sdl.SDLScancode;
+import org.lwjgl.glfw.GLFW;
 
 import java.math.BigDecimal;
 
@@ -363,12 +363,11 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;
@@ -396,9 +395,9 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
             ClientRateRequestSender.send(this.menu.containerId, true, amount);
         } catch (NumberFormatException | ArithmeticException exception) {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_fluid")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), false);
         }
     }
 
@@ -414,14 +413,14 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     public void onOutputRateResult(boolean success, long amount) {
         if (success) {
             this.outputRateField.setValue(formatOutputRate(amount));
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.saved")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0x55FF55))), false);
+                    .withStyle(ChatFormatting.GREEN), false);
         } else {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), false);
         }
     }
 

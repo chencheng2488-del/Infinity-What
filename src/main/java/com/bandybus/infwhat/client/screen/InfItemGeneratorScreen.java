@@ -17,8 +17,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.network.chat.TextColor;
-import org.lwjgl.sdl.SDLScancode;
+import net.minecraft.ChatFormatting;
+import org.lwjgl.glfw.GLFW;
 
 /** Item generator main page and the shared active-output I/O page. */
 public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGeneratorMenu> {
@@ -282,9 +282,9 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
             ClientRateRequestSender.send(this.menu.containerId, false, amount);
         } catch (NumberFormatException exception) {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_item")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), false);
         }
     }
 
@@ -300,26 +300,25 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     public void onOutputRateResult(boolean success, long amount) {
         if (success) {
             this.outputRateField.setValue(Long.toString(amount));
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.saved")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0x55FF55))), false);
+                    .withStyle(ChatFormatting.GREEN), false);
         } else {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.gui.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), false);
         }
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;

@@ -75,5 +75,5 @@
   "message.infwhat.replicator.empty": "复制器中没有已保存的配置",
   "message.infwhat.replicator.pasted": "已粘贴发生器配置",
   "message.infwhat.replicator.type_mismatch": "目标设备类型不匹配，无法粘贴配置",
-  "itemGroup.infwhat.infinity_what": "无限源发生器"
+  "itemGroup.infwhat.infinity_what": "什么无限"
 }

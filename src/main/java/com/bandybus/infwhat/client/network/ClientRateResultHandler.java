@@ -10,10 +10,10 @@ public final class ClientRateResultHandler {
 
     public static void handle(int containerId, boolean fluidGenerator, boolean success, long amount) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.gui.screen() instanceof InfFluidGeneratorScreen screen
+        if (minecraft.screen instanceof InfFluidGeneratorScreen screen
                 && fluidGenerator && screen.getContainerId() == containerId) {
             screen.onOutputRateResult(success, amount);
-        } else if (minecraft.gui.screen() instanceof InfItemGeneratorScreen screen
+        } else if (minecraft.screen instanceof InfItemGeneratorScreen screen
                 && !fluidGenerator && screen.getContainerId() == containerId) {
             screen.onOutputRateResult(success, amount);
         }

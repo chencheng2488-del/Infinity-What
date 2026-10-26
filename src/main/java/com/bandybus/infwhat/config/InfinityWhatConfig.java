@@ -1,9 +1,9 @@
 package com.bandybus.infwhat.config;
 
 import net.minecraft.resources.Identifier;
-import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
@@ -111,9 +111,7 @@ public class InfinityWhatConfig {
     }
 
     public static void register(ModContainer modContainer) {
-        // 26.3 removed ModConfig.Type.COMMON; LOCAL is its direct replacement: loaded on both
-        // sides, stored in the global config directory and not synced.
-        modContainer.registerConfig(ModConfig.Type.LOCAL, SPEC, "infwhat.toml");
+        modContainer.registerConfig(ModConfig.Type.COMMON, SPEC, "infwhat.toml");
     }
 
     private InfinityWhatConfig() {
