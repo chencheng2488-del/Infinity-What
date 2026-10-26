@@ -24,10 +24,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
-import net.neoforged.neoforge.transfer.transaction.TransactionContext;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.minecraft.core.registries.BuiltInRegistries;
 import javax.annotation.Nullable;
 
@@ -35,12 +32,13 @@ import javax.annotation.Nullable;
 /**
  * Stores a single fluid type. When the infinite source is enabled (config), inserting any
  * allowed fluid immediately turns it into an unlimited source. Output goes through the
- * standard NeoForge {@code ResourceHandler<FluidResource>} capability, which is what
- * AE2 / GregTech Modern / Pipez / Mekanism / Create and every other pipe mod use.
+ * standard Forge {@link IFluidHandler} capability, which is what AE2 / GregTech Modern /
+ * Pipez / Mekanism / Create and every other pipe mod use.
  *
- * The source is tracked internally as "infinite"; the capability then reports
- * {@link Long#MAX_VALUE} mB and never depletes, and the GUI presents the conceptual
- * amount as {@code Long.MAX_VALUE B} (buckets, 1 B = 1000 mB).
+ * ENGINE LIMIT: {@link FluidStack} stores its amount as an {@code int} in millibuckets, so a
+ * {@code Long.MAX_VALUE} bucket count cannot be represented by the Forge capability. Internally
+ * the source is tracked as "infinite" and the capability reports {@link Integer#MAX_VALUE} mB;
+ * the GUI presents the conceptual amount as {@code Long.MAX_VALUE B} (buckets, 1 B = 1000 mB).
  */
 public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuProvider {
 
@@ -59,7 +57,7 @@ public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuPro
     private int outputSideMask = (1 << Direction.values().length) - 1;
     private long outputAmountPerTickMb = 1_000L;
 
-    private final ResourceHandler<FluidResource> resourceHandler = new GeneratorFluidResourceHandler();
+    private final IFluidHandler fluidHandler = new InfiniteFluidTank();
 
     public InfFluidGeneratorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.INF_FLUID_GENERATOR.get(), pos, state);
@@ -170,11 +168,11 @@ public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuPro
 
     /**
      * The tank exposed to the bucket interaction in the GUI. This is the same handler that is
-     * published through the NeoForge fluid capability, so a bucket moved onto the GUI tank
-     * behaves exactly like a pipe interacting with the block.
+     * published through the Forge fluid capability, so a bucket moved onto the GUI tank behaves
+     * exactly like a pipe interacting with the block.
      */
-    public ResourceHandler<FluidResource> getResourceHandler() {
-        return this.resourceHandler;
+    public IFluidHandler getFluidHandler() {
+        return this.fluidHandler;
     }
 
     @Nullable
@@ -239,7 +237,7 @@ public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuPro
 
     private void markUpdated() {
         setChanged();
-        if (this.level != null && !this.level.isClientSide()) {
+        if (this.level != null && !this.level.isClientSide) {
             this.level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
     }
@@ -257,17 +255,18 @@ public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuPro
 
     public static void serverTick(Level level, BlockPos pos, BlockState state,
                                   InfFluidGeneratorBlockEntity blockEntity) {
-        if (!level.isClientSide() && blockEntity.outputEnabled && !blockEntity.tank.isEmpty()) {
+        if (!level.isClientSide && blockEntity.outputEnabled && !blockEntity.tank.isEmpty()) {
             blockEntity.pushToNeighbors();
         }
     }
 
     private void pushToNeighbors() {
-        if (this.level == null || this.level.isClientSide() || this.tank.isEmpty()) {
+        if (this.level == null || this.level.isClientSide || this.tank.isEmpty()) {
             return;
         }
 
         boolean infiniteSource = effectivelyInfinite();
+        boolean changed = false;
         long rate = getOutputAmountPerTick();
         for (Direction direction : Direction.values()) {
             if (!isOutputSideEnabled(direction)) {
@@ -281,126 +280,149 @@ public class InfFluidGeneratorBlockEntity extends BlockEntity implements MenuPro
             if (neighbor == null || neighbor == this) {
                 continue;
             }
-            ResourceHandler<FluidResource> target = this.level.getCapability(Capabilities.Fluid.BLOCK,
+            IFluidHandler target = this.level.getCapability(Capabilities.FluidHandler.BLOCK,
                     neighborPos, direction.getOpposite());
             if (target == null) {
                 continue;
             }
 
             long remaining = infiniteSource ? rate : Math.min(rate, this.tank.getAmount());
-            FluidResource resource = FluidResource.of(this.tank);
-            try (var transaction = net.neoforged.neoforge.transfer.transaction.Transaction.openRoot()) {
-                boolean moved = false;
-                while (remaining > 0) {
-                    int offered = (int) Math.min((long) Integer.MAX_VALUE, remaining);
-                    int accepted = Math.max(0, Math.min(offered,
-                            target.insert(resource, offered, transaction)));
-                    if (accepted <= 0) break;
-                    int extracted = this.resourceHandler.extract(0, resource, accepted, transaction);
-                    if (extracted != accepted) break;
-                    remaining -= accepted;
-                    moved = true;
-                    if (accepted < offered) break;
+            while (remaining > 0) {
+                int offered = (int) Math.min((long) Integer.MAX_VALUE, remaining);
+                FluidStack offer = this.tank.copyWithAmount(offered);
+                int accepted = Math.max(0, Math.min(offered,
+                        target.fill(offer, IFluidHandler.FluidAction.EXECUTE)));
+                if (accepted <= 0) {
+                    break;
                 }
-                if (moved) transaction.commit();
+                remaining -= accepted;
+                if (!infiniteSource) {
+                    this.tank.shrink(accepted);
+                    changed = true;
+                    if (this.tank.isEmpty()) {
+                        this.infinite = false;
+                        break;
+                    }
+                }
+                if (accepted < offered) {
+                    break;
+                }
             }
             if (this.tank.isEmpty() && !infiniteSource) break;
         }
+        if (changed) {
+            markUpdated();
+        }
     }
 
-    /** New transactional storage capability used by NeoForge automation from 1.21.9 onward. */
-    private final class GeneratorFluidResourceHandler extends SnapshotJournal<TankSnapshot>
-            implements ResourceHandler<FluidResource> {
+    // ------------------------------------------------------------------
+    // Fluid handler (shared by every side)
+    // ------------------------------------------------------------------
+
+    private final class InfiniteFluidTank implements IFluidHandler {
 
         @Override
-        public int size() {
+        public int getTanks() {
             return 1;
         }
 
         @Override
-        public FluidResource getResource(int index) {
-            checkIndex(index);
-            return tank.isEmpty() ? FluidResource.EMPTY : FluidResource.of(tank);
+        public FluidStack getFluidInTank(int index) {
+            if (index != 0 || InfFluidGeneratorBlockEntity.this.tank.isEmpty()) {
+                return FluidStack.EMPTY;
+            }
+            int amount = InfFluidGeneratorBlockEntity.this.effectivelyInfinite()
+                    ? Integer.MAX_VALUE
+                    : InfFluidGeneratorBlockEntity.this.tank.getAmount();
+            return InfFluidGeneratorBlockEntity.this.tank.copyWithAmount(amount);
         }
 
         @Override
-        public long getAmountAsLong(int index) {
-            checkIndex(index);
-            if (tank.isEmpty()) return 0;
-            return effectivelyInfinite() ? Long.MAX_VALUE : tank.getAmount();
+        public int getTankCapacity(int index) {
+            return InfFluidGeneratorBlockEntity.this.effectivelyInfinite()
+                    ? Integer.MAX_VALUE
+                    : InfinityWhatConfig.finiteCapacity();
         }
 
         @Override
-        public long getCapacityAsLong(int index, FluidResource resource) {
-            checkIndex(index);
-            return effectivelyInfinite() ? Long.MAX_VALUE : InfinityWhatConfig.finiteCapacity();
+        public boolean isFluidValid(int index, FluidStack stack) {
+            if (index != 0 || stack.isEmpty() || isDisallowed(stack)) {
+                return false;
+            }
+            // fluid_type_limit = 1: a different type cannot be accepted once one is stored.
+            FluidStack stored = InfFluidGeneratorBlockEntity.this.tank;
+            return stored.isEmpty() || FluidStack.isSameFluid(stored, stack);
         }
 
         @Override
-        public boolean isValid(int index, FluidResource resource) {
-            checkIndex(index);
-            if (resource.isEmpty()) return false;
-            FluidStack incoming = resource.toStack(1);
-            if (isDisallowed(incoming)) return false;
-            return tank.isEmpty() || FluidResource.of(tank).equals(resource);
-        }
-
-        @Override
-        public int insert(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            checkIndex(index);
-            if (resource.isEmpty() || amount <= 0 || !isValid(index, resource)) return 0;
-            if (effectivelyInfinite()) return amount;
-
-            if (InfinityWhatConfig.infiniteEnabled()) {
-                updateSnapshots(transaction);
-                tank = resource.toStack(1);
-                infinite = true;
-                return amount;
+        public int fill(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || isDisallowed(resource)) {
+                return 0;
+            }
+            FluidStack stored = InfFluidGeneratorBlockEntity.this.tank;
+            // fluid_type_limit = 1: only one fluid type may be stored at a time
+            if (!stored.isEmpty() && !FluidStack.isSameFluid(stored, resource)) {
+                return 0;
             }
 
-            int current = tank.isEmpty() ? 0 : tank.getAmount();
-            int accepted = Math.min(amount, Math.max(0, InfinityWhatConfig.finiteCapacity() - current));
-            if (accepted <= 0) return 0;
-            updateSnapshots(transaction);
-            if (tank.isEmpty()) tank = resource.toStack(accepted);
-            else tank.grow(accepted);
+            if (InfinityWhatConfig.infiniteEnabled()) {
+                if (action.execute()) {
+                    // Keep one unit of the type and flip the source to infinite.
+                    InfFluidGeneratorBlockEntity.this.tank = resource.copyWithAmount(1);
+                    InfFluidGeneratorBlockEntity.this.infinite = true;
+                    markUpdated();
+                }
+                // The spec says the amount jumps to the max immediately, so accept it all.
+                return resource.getAmount();
+            }
+
+            int capacity = InfinityWhatConfig.finiteCapacity();
+            int current = stored.isEmpty() ? 0 : stored.getAmount();
+            int accepted = Math.min(capacity - current, resource.getAmount());
+            if (accepted <= 0) {
+                return 0;
+            }
+            if (action.execute()) {
+                if (stored.isEmpty()) {
+                    InfFluidGeneratorBlockEntity.this.tank = resource.copyWithAmount(accepted);
+                } else {
+                    stored.grow(accepted);
+                }
+                markUpdated();
+            }
             return accepted;
         }
 
         @Override
-        public int extract(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            checkIndex(index);
-            if (resource.isEmpty() || amount <= 0 || tank.isEmpty()
-                    || !FluidResource.of(tank).equals(resource)) return 0;
-            if (effectivelyInfinite()) return amount;
-            int extracted = Math.min(amount, tank.getAmount());
-            if (extracted <= 0) return 0;
-            updateSnapshots(transaction);
-            tank.shrink(extracted);
-            if (tank.isEmpty()) infinite = false;
-            return extracted;
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            if (resource.isEmpty() || InfFluidGeneratorBlockEntity.this.tank.isEmpty()
+                    || !FluidStack.isSameFluid(InfFluidGeneratorBlockEntity.this.tank, resource)) {
+                return FluidStack.EMPTY;
+            }
+            return drain(resource.getAmount(), action);
         }
 
         @Override
-        protected TankSnapshot createSnapshot() {
-            return new TankSnapshot(tank.copy(), infinite);
-        }
-
-        @Override
-        protected void revertToSnapshot(TankSnapshot snapshot) {
-            tank = snapshot.fluid().copy();
-            infinite = snapshot.infinite();
-        }
-
-        @Override
-        protected void onRootCommit(TankSnapshot snapshot) {
-            markUpdated();
-        }
-
-        private void checkIndex(int index) {
-            if (index != 0) throw new IndexOutOfBoundsException(index);
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            FluidStack stored = InfFluidGeneratorBlockEntity.this.tank;
+            if (stored.isEmpty() || maxDrain <= 0) {
+                return FluidStack.EMPTY;
+            }
+            if (InfFluidGeneratorBlockEntity.this.effectivelyInfinite()) {
+                // Unlimited source: never depletes, always hands out the requested amount.
+                return stored.copyWithAmount(maxDrain);
+            }
+            int drained = Math.min(maxDrain, stored.getAmount());
+            FluidStack result = stored.copyWithAmount(drained);
+            if (action.execute()) {
+                stored.shrink(drained);
+                if (stored.getAmount() <= 0) {
+                    InfFluidGeneratorBlockEntity.this.tank = FluidStack.EMPTY;
+                    InfFluidGeneratorBlockEntity.this.infinite = false;
+                }
+                markUpdated();
+            }
+            return result;
         }
     }
-
-    private record TankSnapshot(FluidStack fluid, boolean infinite) {}
 }
