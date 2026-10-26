@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "infwhat:block/inf_item_generator"
+  }
+}
