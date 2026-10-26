@@ -1,128 +1,193 @@
-# Infinity-What Mod
+# Infinity What
 
-## 一、Mod 简介
-
-本 Mod 添加了两台「无限资源发生器」：
-
-- **无限流体发生器**：放入一种流体后，它就能源源不断地输出这种流体，永不枯竭。
-- **无限物品发生器**：放入一种物品作为模板，再给它通上红石信号，它就能无限复制这种物品。
-
-两台机器都能对接常见的管道、线缆和存储网络，相当于生存模式里一台「创造模式级」的无限供给站。
+简体中文 | [English](#english)
 
 ---
 
-## 二、物品 / 方块列表
+## 简体中文
 
-### 无限流体发生器
+无限资源，告别刷材料。
 
-**用途**：无限流体来源。
+本模组新增两种发电机与一个配置复制工具。往发电机里放入一桶流体或一个物品，打开无限源开关，它就会永远产出。输出速率、输出方向、允许进入的内容，全部可配置。
 
-**行为**：内部只保存一种流体。只要放入任意一种允许的流体，它立刻进入无限模式，之后可以无限量地输出该流体，永远不会耗尽。
+### 功能
 
-**界面**：右键方块打开界面，可以看到流体名称、流体 ID 和数量；界面中还有一块储罐区域，支持直接用桶操作（见下文）。
+- **无限流体发生器** —— 放入任意允许的流体一次，储罐即变为无限源。输出速率可自由设置，输出可按面单独开启或关闭。
+- **无限物品发生器** —— 放入一个物品，即可获得近乎无限的供给，同样支持按面输出与速率设置。
+- **无限源配置复制器** —— 复制一台机器的完整配置（输出开关、输出方向、输出速率、物品无限模式），粘贴到另一台同类型机器上。
+- **物品与流体 ID 过滤** —— 通过 `config/infwhat.toml` 按类别独立设置黑名单或白名单，精确控制每台机器接受什么。管道、漏斗、存储总线以及 GUI 内手动放入的物品/流体都受此限制。
+- **创造模式标签页** —— 所有物品集中展示在独立的 `Infinity What` 标签页中。
 
-**连接**：六个面都能接流体管道，管道或存储网络可以从它这里抽取流体。
+### 支持的版本
 
-**方块属性**：
-- 硬度：3.5
-- 抗爆性：10
-- 音效：金属音效
-- 挖掘工具：任意镐
-- 最多堆叠：1 个
+本仓库的每个分支都是一个**对应单个 Minecraft 版本的完整独立工程**。选择与你的游戏版本匹配的分支进行构建，或直接从 Releases 页面下载 jar。
 
-### 无限物品发生器
+| Minecraft | 加载器 | 加载器版本 |
+|---|---|---|
+| 1.20.1 | Forge | 47.4.10+ |
+| 1.20.1 | NeoForge | 47.1.106 |
+| 1.20.2 | NeoForge | 20.2.93 |
+| 1.20.4 | NeoForge | 20.4.253 |
+| 1.20.6 | NeoForge | 20.6.144 |
+| 1.21 | NeoForge | 21.0.167 |
+| 1.21.1 | NeoForge | 21.1.262 |
+| 1.21.4 | NeoForge | 21.4.161 |
+| 1.21.5 | NeoForge | 21.5.101 |
+| 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.11 | NeoForge | 21.11.48 |
+| 26.1 | NeoForge | 26.1.2.121 |
+| 26.1.2 | NeoForge | 26.1.2.121 |
+| 26.2 | NeoForge | 26.2.0.93 |
+| 26.3 | NeoForge | 26.3.0.83 |
 
-**用途**：无限物品来源。
+### 安装
 
-**行为**：内部固定只放 1 个物品作为「模板」。当它同时满足「被红石信号充能」和「槽内有物品」这两个条件时，该物品就会变成无限来源。
+1. 安装与你的游戏版本对应的 Minecraft Forge 或 NeoForge。
+2. 将匹配的 jar 放入 `mods` 文件夹。
+3. 启动游戏。首次启动时会生成 `config/infwhat.toml`。
 
-**界面**：右键方块打开界面。界面里有一个放置模板物品的槽位，槽位下方有一盏小小的绿色指示灯：
-- **暗绿色**：没有收到红石信号，无限模式未开启。
-- **亮绿色**：已收到红石信号，正在运行。
+无需其他模组作为前置。
 
-把鼠标悬停在指示灯上会显示一句状态说明。
+### 配置
 
-**连接**：六个面都能接物品管道或存储网络；运行期间它还会主动把物品推入紧邻的容器。
+所有行为由 `config/infwhat.toml` 控制。
 
-**方块属性**：与流体发生器相同（硬度 3.5、抗爆性 10、金属音效、需要任意镐、最多堆叠 1 个）。
+```toml
+[balance]
+	# Master switch for the infinite behaviour of both generators.
+	enableInfiniteSource = true
+	# Capacity in mB used when enableInfiniteSource is false.
+	finiteTankCapacity = 16000
 
-**拆除**：破坏方块时，里面存放的模板物品会掉落出来，不会丢失。
+[item_filter]
+	# BLACKLIST: listed item ids can never be inserted.
+	# WHITELIST: only listed item ids can be inserted.
+	mode = "BLACKLIST"
+	# Item ids (e.g. "minecraft:diamond") the mode above applies to.
+	list = []
 
----
+[fluid_filter]
+	# BLACKLIST: listed fluid ids can never be inserted.
+	# WHITELIST: only listed fluid ids can be inserted.
+	mode = "BLACKLIST"
+	# Fluid ids (e.g. "minecraft:water") the mode above applies to.
+	list = []
+```
 
-## 三、合成配方
+名单默认为空，因此在黑名单模式下不会过滤任何内容。将 `mode` 设为 `"WHITELIST"` 并填入名单，即可仅允许名单中的条目。
 
-两台机器都在 3×3 合成台中制作。
+### 从源码构建
 
-### 无限流体发生器
+切换到需要的版本分支后执行：
 
-| | | |
-|:---:|:---:|:---:|
-| 铁锭 | 钻石 | 铁锭 |
-| 钻石 | 桶 | 钻石 |
-| 铁锭 | 钻石 | 铁锭 |
+```bash
+./gradlew build
+```
 
-### 无限物品发生器
+产物位于 `build/libs/`。各分支所需的 JDK：
 
-| | | |
-|:---:|:---:|:---:|
-| 铁锭 | 钻石 | 铁锭 |
-| 钻石 | 箱子 | 钻石 |
-| 铁锭 | 钻石 | 铁锭 |
+| Minecraft | JDK |
+|---|---|
+| 1.20.1 – 1.20.4 | 17 |
+| 1.20.6 – 1.21.11 | 21 |
+| 26.x | 25 |
 
-**说明**：四角与正中为铁锭，中间十字为钻石，正中心流体版放桶、物品版放箱子。
+### 许可证
 
----
-
-## 四、玩法说明
-
-### 无限流体发生器
-
-1. 放下方块，把流体管道接到任意一个面。
-2. 右键打开界面。
-3. 把自己想要的流体放进去（用桶倒，或让管道输入）。一旦它接受了某种流体，就会成为这种流体的无限来源，永不耗尽。
-4. 用接在任意一面的管道把流体抽走。无限模式生效时，界面上的数量一行会显示一个极大值。
-
-**界面里的用桶操作**：
-- 把装有流体的容器（如水桶）拿在鼠标光标上，然后点击储罐区域
-- **右键点击储罐**：把容器里的流体倒入机器
-- **左键点击储罐**：用机器里的流体灌满手上的容器
-- 此操作只在界面打开时有效；不打开界面时请用管道
-
-### 无限物品发生器
-
-1. 放下方块，右键打开界面。
-2. 把想要复制的物品放 1 个进槽位。
-3. 从任意一面给它红石信号（拉杆、红石块、红石火把、中继器等都可以）。指示灯变亮，机器就成为该物品的无限来源。
-
-**取物品的方式**：
-- **左键点击槽位**：取 1 个
-- **Shift + 左键点击槽位**：取一整组（直接进入背包）
-- **接管道或存储网络**：可以持续抽取
-
-**运行说明**：
-- 运行期间，机器还会大约每 0.4 秒自动向紧邻的每一个容器推入一整组物品
-- 取物品永远不会消耗来源
-- 运行期间模板物品无法用常规方式取出，它会留在槽里让机器持续产出
-- 取消红石信号即可停止产出。槽位恢复为普通的单物品槽，可以取回物品
-- 破坏方块时，存放的物品一定会掉落返还
+[Apache License 2.0](LICENSE)
 
 ---
 
-## 五、注意事项
+## English
 
-- **只认一种流体**：流体发生器同一时间只保存一种流体，要换别的流体必须先清空。无限模式生效时它永远不会抽干，因此无法靠正常抽取把它清空。
+Infinite resources, zero farming.
 
-- **物品发生器需要满足两个条件**：红石充能且槽内有物品，缺一不可，否则不产出。
+Infinity What adds two generator machines plus a config-copying tool. Feed a generator a single bucket or a single item, flip its infinite-source switch, and it produces forever. Every knob — output rate, output sides, what may enter — is configurable.
 
-- **快捷移动提示**：流体发生器界面里的储罐不是真正的物品槽，不能把物品 Shift 直接移入，请使用上面介绍的用桶点击操作。
+### Features
 
-- **无限模式是可关闭的设定**：服务器或整合包可以一次性关闭两台机器的无限行为。关闭后：
-  - 流体发生器会变成一台容量有限的普通储罐（默认 16000 mB），且不会再自行补充。
-  - 物品发生器永远不会进入无限状态，只是一个普通的单物品槽。
+- **Infinity Fluid Generator** — insert any allowed fluid once and the tank becomes an endless source. Output rate is freely configurable and output can be enabled per side.
+- **Infinity Item Generator** — insert a single item and it becomes an effectively unlimited supply, with the same per-side and rate controls.
+- **Config Replicator** — copy a machine's full configuration (output switches, sides, rate, infinite mode) and paste it onto another machine of the same type.
+- **Item & fluid ID filters** — blacklist or whitelist exactly what each machine accepts, per category, through `config/infwhat.toml`. Filters apply to pipes, hoppers, storage buses and manual GUI insertion alike.
+- **Creative tab** — all items collected in a dedicated `Infinity What` tab.
 
-- **黑名单**：服务器或整合包可以把某些流体（按 ID，例如 `minecraft:water`）列入黑名单，流体发生器会拒绝保存这些流体。
+### Supported versions
 
-- **关于超大数字**：游戏通过物品 / 流体管道能表示的数量上限约为 21 亿，所以存储网络看到的会是「一个极大但有限的数字」。实际使用中它永远不会用完。
+Every branch of this repository is a **complete, standalone project for one Minecraft version**. Pick the branch matching your game version, build it, or grab the jar from the Releases page.
 
-- **兼容性**：两台机器都使用通用的物品 / 流体连接方式，因此常见管道、线缆与存储类 Mod 无需额外插件即可对接；即使没有安装这些 Mod，只要对方使用通用接口，也能正常工作。
+| Minecraft | Loader | Loader version |
+|---|---|---|
+| 1.20.1 | Forge | 47.4.10+ |
+| 1.20.1 | NeoForge | 47.1.106 |
+| 1.20.2 | NeoForge | 20.2.93 |
+| 1.20.4 | NeoForge | 20.4.253 |
+| 1.20.6 | NeoForge | 20.6.144 |
+| 1.21 | NeoForge | 21.0.167 |
+| 1.21.1 | NeoForge | 21.1.262 |
+| 1.21.4 | NeoForge | 21.4.161 |
+| 1.21.5 | NeoForge | 21.5.101 |
+| 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.11 | NeoForge | 21.11.48 |
+| 26.1 | NeoForge | 26.1.2.121 |
+| 26.1.2 | NeoForge | 26.1.2.121 |
+| 26.2 | NeoForge | 26.2.0.93 |
+| 26.3 | NeoForge | 26.3.0.83 |
+
+### Installation
+
+1. Install Minecraft Forge or NeoForge for your game version.
+2. Drop the matching jar into your `mods` folder.
+3. Launch the game. `config/infwhat.toml` is generated on first start.
+
+No other mods are required.
+
+### Configuration
+
+All behaviour is controlled by `config/infwhat.toml`.
+
+```toml
+[balance]
+	# Master switch for the infinite behaviour of both generators.
+	enableInfiniteSource = true
+	# Capacity in mB used when enableInfiniteSource is false.
+	finiteTankCapacity = 16000
+
+[item_filter]
+	# BLACKLIST: listed item ids can never be inserted.
+	# WHITELIST: only listed item ids can be inserted.
+	mode = "BLACKLIST"
+	# Item ids (e.g. "minecraft:diamond") the mode above applies to.
+	list = []
+
+[fluid_filter]
+	# BLACKLIST: listed fluid ids can never be inserted.
+	# WHITELIST: only listed fluid ids can be inserted.
+	mode = "BLACKLIST"
+	# Fluid ids (e.g. "minecraft:water") the mode above applies to.
+	list = []
+```
+
+The lists are empty by default, so in blacklist mode nothing is filtered out. Set `mode = "WHITELIST"` and fill a list to allow only those entries.
+
+### Building from source
+
+Pick the branch for the version you need and run:
+
+```bash
+./gradlew build
+```
+
+The jar lands in `build/libs/`. Java version required per branch:
+
+| Minecraft | JDK |
+|---|---|
+| 1.20.1 – 1.20.4 | 17 |
+| 1.20.6 – 1.21.11 | 21 |
+| 26.x | 25 |
+
+### License
+
+[Apache License 2.0](LICENSE)
