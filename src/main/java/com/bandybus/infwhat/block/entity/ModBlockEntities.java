@@ -16,22 +16,26 @@ public class ModBlockEntities {
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InfFluidGeneratorBlockEntity>> INF_FLUID_GENERATOR =
             BLOCK_ENTITIES.register("inf_fluid_generator", () ->
-                    new BlockEntityType<>(InfFluidGeneratorBlockEntity::new,
-                            ModBlocks.INF_FLUID_GENERATOR.get()));
+                    BlockEntityType.Builder.of(
+                            InfFluidGeneratorBlockEntity::new,
+                            ModBlocks.INF_FLUID_GENERATOR.get()
+                    ).build(null));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InfItemGeneratorBlockEntity>> INF_ITEM_GENERATOR =
             BLOCK_ENTITIES.register("inf_item_generator", () ->
-                    new BlockEntityType<>(InfItemGeneratorBlockEntity::new,
-                            ModBlocks.INF_ITEM_GENERATOR.get()));
+                    BlockEntityType.Builder.of(
+                            InfItemGeneratorBlockEntity::new,
+                            ModBlocks.INF_ITEM_GENERATOR.get()
+                    ).build(null));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
     }
 
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.Fluid.BLOCK, INF_FLUID_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
-        event.registerBlockEntity(Capabilities.Item.BLOCK, INF_ITEM_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, INF_FLUID_GENERATOR.get(),
+                (blockEntity, side) -> blockEntity.getFluidHandler());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, INF_ITEM_GENERATOR.get(),
+                (blockEntity, side) -> blockEntity.getCapabilityHandler());
     }
 }

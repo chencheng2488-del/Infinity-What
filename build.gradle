@@ -20,12 +20,9 @@ neoForge {
         server { server(); programArgument '--nogui'; systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id }
         gameTestServer { type = "gameTestServer"; systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id }
         data {
-            clientData()
-
-            programArguments.addAll '--mod', project.mod_id,
-                    '--all', '--output',
-                    file('src/generated/resources/').getAbsolutePath(),
-                    '--existing',
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output',
+                    file('src/generated/resources/').getAbsolutePath(), '--existing',
                     file('src/main/resources/').getAbsolutePath()
         }
         configureEach {
@@ -46,7 +43,7 @@ def generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     ]
     inputs.properties replaceProperties
     filteringCharset = 'UTF-8'
-    filesMatching('META-INF/neoforge.mods.toml') { expand replaceProperties }
+    filesMatching('META-INF/mods.toml') { expand replaceProperties }
     from 'src/main/templates'
     into 'build/generated/sources/modMetadata'
 }
