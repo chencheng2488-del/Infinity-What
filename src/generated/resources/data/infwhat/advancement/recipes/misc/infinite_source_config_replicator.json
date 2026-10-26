@@ -15,7 +15,7 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipes": "infwhat:infinite_source_config_replicator"
+        "recipe": "infwhat:infinite_source_config_replicator"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
