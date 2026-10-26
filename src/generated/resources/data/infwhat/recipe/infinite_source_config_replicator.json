@@ -2,9 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "I": "minecraft:iron_ingot",
-    "R": "minecraft:redstone",
-    "P": "minecraft:paper"
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
   },
   "pattern": [
     " P ",
@@ -12,8 +18,7 @@
     " I "
   ],
   "result": {
-    "count": 1,
-    "id": "infwhat:infinite_source_config_replicator"
+    "item": "infwhat:infinite_source_config_replicator"
   },
   "show_notification": true
 }

@@ -1,0 +1,29 @@
+package com.bandybus.infwhat.datagen;
+
+import com.bandybus.infwhat.block.ModBlocks;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.level.block.Block;
+import net.neoforged.neoforge.registries.DeferredHolder;
+
+import java.util.Collections;
+
+public class ModBlockLootProvider extends BlockLootSubProvider {
+
+    protected ModBlockLootProvider(HolderLookup.Provider registries) {
+        super(Collections.emptySet(), FeatureFlags.REGISTRY.allFlags(), registries);
+    }
+
+    @Override
+    protected void generate() {
+        dropSelf(ModBlocks.INF_FLUID_GENERATOR.get());
+        dropSelf(ModBlocks.INF_ITEM_GENERATOR.get());
+    }
+
+    @Override
+    protected Iterable<Block> getKnownBlocks() {
+        return ModBlocks.BLOCKS.getEntries().stream()
+                .map(holder -> (Block) holder.get())::iterator;
+    }
+}

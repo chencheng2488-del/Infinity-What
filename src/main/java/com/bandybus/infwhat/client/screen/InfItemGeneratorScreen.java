@@ -1,31 +1,28 @@
 package com.bandybus.infwhat.client.screen;
 
 import com.bandybus.infwhat.InfinityWhat;
-import com.bandybus.infwhat.client.network.ClientRateRequestSender;
 import com.bandybus.infwhat.menu.InfItemGeneratorMenu;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
+import com.bandybus.infwhat.network.ModNetworking;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.network.chat.TextColor;
-import org.lwjgl.sdl.SDLScancode;
+import net.minecraft.ChatFormatting;
+import org.lwjgl.glfw.GLFW;
 
 /** Item generator main page and the shared active-output I/O page. */
 public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGeneratorMenu> {
 
-    public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(
+    public static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
             InfinityWhat.MOD_ID, "textures/gui/container/inf_item_generator.png");
-    public static final Identifier IO_TEXTURE = Identifier.fromNamespaceAndPath(
+    public static final ResourceLocation IO_TEXTURE = ResourceLocation.fromNamespaceAndPath(
             InfinityWhat.MOD_ID, "textures/gui/container/inf_source_io.png");
 
     private static final int GUI_WIDTH = 184;
@@ -79,7 +76,9 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     private EditBox outputRateField;
 
     public InfItemGeneratorScreen(InfItemGeneratorMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, GUI_WIDTH, GUI_HEIGHT);
+        super(menu, inventory, title);
+        this.imageWidth = GUI_WIDTH;
+        this.imageHeight = GUI_HEIGHT;
         this.inventoryLabelX = 12;
         this.inventoryLabelY = 86;
         this.titleLabelX = 12;
@@ -98,45 +97,47 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
         this.outputRateField.setTextColor(BUTTON_TEXT);
         this.outputRateField.setBordered(false);
         this.outputRateField.setVisible(this.ioPage);
-        this.addRenderableWidget(this.outputRateField);
+        this.addWidget(this.outputRateField);
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         if (this.ioPage) {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, IO_TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
+            graphics.blit(IO_TEXTURE, this.leftPos, this.topPos, 0, 0,
                     GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
         } else {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
+            graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0,
                     GUI_WIDTH, GUI_HEIGHT, MAIN_TEXTURE_WIDTH, GUI_HEIGHT);
         }
     }
 
     @Override
-    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!this.ioPage) {
-            graphics.text(this.font, this.title, this.titleLabelX, this.titleLabelY,
+            graphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY,
                     0xFFE9F1F4, false);
         }
-        graphics.text(this.font, this.playerInventoryTitle,
+        graphics.drawString(this.font, this.playerInventoryTitle,
                 this.inventoryLabelX, this.inventoryLabelY, 0xFFE9F1F4, false);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
         // Keep JEI, FTB and other third-party controls in their original screen coordinates.
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
         if (this.ioPage) {
             renderIoPage(graphics, mouseX, mouseY);
+            this.outputRateField.render(graphics, mouseX, mouseY, partialTick);
         } else {
             renderStoredInfo(graphics);
             renderMainButtons(graphics, mouseX, mouseY);
         }
+        this.renderTooltip(graphics, mouseX, mouseY);
         renderControlTooltip(graphics, mouseX, mouseY);
     }
 
-    private void renderMainButtons(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void renderMainButtons(GuiGraphics graphics, int mouseX, int mouseY) {
         drawButton(graphics, MAIN_INFINITE_X, MAIN_INFINITE_Y,
                 MAIN_INFINITE_WIDTH, MAIN_INFINITE_HEIGHT,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".items.infinite_mode."
@@ -148,8 +149,8 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
                 isHovering(MAIN_IO_X, MAIN_IO_Y, MAIN_IO_WIDTH, MAIN_IO_HEIGHT, mouseX, mouseY));
     }
 
-    private void renderIoPage(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        graphics.text(this.font,
+    private void renderIoPage(GuiGraphics graphics, int mouseX, int mouseY) {
+        graphics.drawString(this.font,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.title"),
                 this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
         drawButton(graphics, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT,
@@ -160,7 +161,7 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
                         + (this.menu.isOutputEnabled() ? "on" : "off")),
                 this.menu.isOutputEnabled(), isHovering(IO_OUTPUT_X, IO_OUTPUT_Y,
                         IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT, mouseX, mouseY));
-        graphics.text(this.font,
+        graphics.drawString(this.font,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.label"),
                 this.leftPos + IO_RATE_LABEL_X, this.topPos + IO_RATE_LABEL_Y, BUTTON_TEXT, false);
         drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
@@ -182,7 +183,7 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
         }
     }
 
-    private void drawButton(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
+    private void drawButton(GuiGraphics graphics, int x, int y, int width, int height,
                             Component label, boolean enabled, boolean hovered) {
         int absoluteX = this.leftPos + x;
         int absoluteY = this.topPos + y;
@@ -190,21 +191,20 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
                 absoluteY + height + 1, BUTTON_BORDER);
         int fill = hovered ? BUTTON_HOVER : (enabled ? BUTTON_ON : BUTTON_OFF);
         graphics.fill(absoluteX, absoluteY, absoluteX + width, absoluteY + height, fill);
-        graphics.text(this.font, label,
-                absoluteX + (width - this.font.width(label)) / 2,
-                absoluteY + (height - 8) / 2, BUTTON_TEXT);
+        graphics.drawCenteredString(this.font, label,
+                absoluteX + width / 2, absoluteY + (height - 8) / 2, BUTTON_TEXT);
     }
 
-    private void renderStoredInfo(GuiGraphicsExtractor graphics) {
+    private void renderStoredInfo(GuiGraphics graphics) {
         ItemStack stored = this.menu.getStoredItem();
         if (stored.isEmpty()) return;
         int maxWidth = GUI_WIDTH - 24;
         String name = truncate(stored.getHoverName().getString(), maxWidth);
-        Identifier key = BuiltInRegistries.ITEM.getKey(stored.getItem());
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stored.getItem());
         String id = truncate(key.toString(), maxWidth);
-        graphics.text(this.font, name, this.leftPos + (GUI_WIDTH - this.font.width(name)) / 2,
+        graphics.drawCenteredString(this.font, name, this.leftPos + GUI_WIDTH / 2,
                 this.topPos + 24, 0xFFE9F1F4);
-        graphics.text(this.font, id, this.leftPos + (GUI_WIDTH - this.font.width(id)) / 2,
+        graphics.drawCenteredString(this.font, id, this.leftPos + GUI_WIDTH / 2,
                 this.topPos + 35, 0xFF9FB8C2);
     }
 
@@ -216,10 +216,7 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
-        int button = event.button();
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int x = (int) mouseX - this.leftPos;
         int y = (int) mouseY - this.topPos;
         if (button == 0) {
@@ -272,19 +269,19 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
                 }
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void submitOutputRate() {
         try {
             long amount = Long.parseLong(this.outputRateField.getValue().trim());
             if (amount < 1 || amount > Integer.MAX_VALUE) throw new NumberFormatException();
-            ClientRateRequestSender.send(this.menu.containerId, false, amount);
+            ModNetworking.sendOutputRate(this.menu.containerId, false, amount);
         } catch (NumberFormatException exception) {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_item")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), true);
         }
     }
 
@@ -300,31 +297,29 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     public void onOutputRateResult(boolean success, long amount) {
         if (success) {
             this.outputRateField.setValue(Long.toString(amount));
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.saved")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0x55FF55))), false);
+                    .withStyle(ChatFormatting.GREEN), true);
         } else {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), true);
         }
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;
         }
-        return super.keyPressed(event);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void returnToMainPage() {
@@ -334,7 +329,7 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
         this.menu.setGeneratorSlotVisible(true);
     }
 
-    private void renderControlTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void renderControlTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         int x = mouseX - this.leftPos;
         int y = mouseY - this.topPos;
         Component tooltip = null;
@@ -351,7 +346,7 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
                 IO_RATE_APPLY_X + IO_RATE_APPLY_WIDTH - IO_RATE_FIELD_X, IO_RATE_FIELD_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.item.tooltip");
         }
-        if (tooltip != null) graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+        if (tooltip != null) graphics.renderTooltip(this.font, tooltip, mouseX, mouseY);
     }
 
     private boolean isHovering(int x, int y, int width, int height, int mouseX, int mouseY) {

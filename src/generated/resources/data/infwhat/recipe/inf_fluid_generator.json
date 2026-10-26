@@ -2,9 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "B": "minecraft:bucket",
-    "D": "minecraft:diamond",
-    "I": "minecraft:iron_ingot"
+    "B": {
+      "item": "minecraft:bucket"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
   },
   "pattern": [
     "IDI",
@@ -12,8 +18,7 @@
     "IDI"
   ],
   "result": {
-    "count": 1,
-    "id": "infwhat:inf_fluid_generator"
+    "item": "infwhat:inf_fluid_generator"
   },
   "show_notification": true
 }
