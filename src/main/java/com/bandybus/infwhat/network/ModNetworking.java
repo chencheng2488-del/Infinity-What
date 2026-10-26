@@ -8,7 +8,7 @@ import com.bandybus.infwhat.menu.InfItemGeneratorMenu;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -58,7 +58,7 @@ public final class ModNetworking {
     public record SetOutputRatePayload(int containerId, boolean fluidGenerator, long amount)
             implements CustomPacketPayload {
         public static final Type<SetOutputRatePayload> TYPE = new Type<>(
-                Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "set_output_rate"));
+                ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID, "set_output_rate"));
         public static final StreamCodec<RegistryFriendlyByteBuf, SetOutputRatePayload> STREAM_CODEC =
                 StreamCodec.of((buffer, payload) -> {
                     buffer.writeVarInt(payload.containerId);
@@ -75,7 +75,7 @@ public final class ModNetworking {
     public record OutputRateResultPayload(int containerId, boolean fluidGenerator,
                                           boolean success, long amount) implements CustomPacketPayload {
         public static final Type<OutputRateResultPayload> TYPE = new Type<>(
-                Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID, "output_rate_result"));
+                ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID, "output_rate_result"));
         public static final StreamCodec<RegistryFriendlyByteBuf, OutputRateResultPayload> STREAM_CODEC =
                 StreamCodec.of((buffer, payload) -> {
                     buffer.writeVarInt(payload.containerId);

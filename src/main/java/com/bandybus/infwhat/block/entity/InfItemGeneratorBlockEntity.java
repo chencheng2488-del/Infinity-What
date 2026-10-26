@@ -5,8 +5,8 @@ import com.bandybus.infwhat.config.InfinityWhatConfig;
 import com.bandybus.infwhat.menu.InfItemGeneratorMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -24,7 +24,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.transfer.IndexModifier;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
@@ -35,8 +37,8 @@ import javax.annotation.Nullable;
 /**
  * Infinity Item Generator. Its GUI-controlled infinite-mode switch makes the stored item an
  * unlimited source. Active output is independently configurable and can be limited to selected
- * sides; the standard NeoForge {@code ResourceHandler<ItemResource>} capability remains
- * available to pipes/import buses on every side.
+ * sides; the standard Forge {@link IItemHandler} capability remains available to pipes/import
+ * buses on every side.
  *
  * ENGINE LIMIT: {@link ItemStack} stores its count as an {@code int}, so a true
  * {@code Long.MAX_VALUE} count cannot be stored. The internal slot always holds exactly one
@@ -60,15 +62,14 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     private int outputSideMask = (1 << Direction.values().length) - 1;
     private int outputItemsPerTick = DEFAULT_OUTPUT_RATE;
 
-    /** The stored template item. Always held with a count of exactly one. */
-    private ItemStack storedItem = ItemStack.EMPTY;
+    private final GeneratorItemHandler itemHandler = new GeneratorItemHandler();
     /**
      * Capability view of the single slot. It reports the huge infinite count and lets pipes/AE2
-     * pull from the block, while {@link MenuItemHandler} keeps the GUI facing a plain
+     * pull from the block, while {@link GeneratorItemHandler} keeps the GUI facing a plain
      * one-item slot.
      */
+    private final IItemHandler capabilityHandler = new CapabilityItemHandler();
     private final ResourceHandler<ItemResource> resourceHandler = new GeneratorResourceHandler();
-    private final MenuItemHandler menuHandler = new MenuItemHandler();
 
     public InfItemGeneratorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.INF_ITEM_GENERATOR.get(), pos, state);
@@ -78,21 +79,12 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     // Capability
     // ------------------------------------------------------------------
 
+    public IItemHandler getCapabilityHandler() {
+        return this.capabilityHandler;
+    }
+
     public ResourceHandler<ItemResource> getResourceHandler() {
         return this.resourceHandler;
-    }
-
-    /**
-     * Menu-facing view of the slot: always reports a count of one so the GUI slot shows the
-     * plain template item instead of the huge capability count.
-     */
-    public ResourceHandler<ItemResource> getMenuHandler() {
-        return this.menuHandler;
-    }
-
-    /** Direct mutation function backing the menu slot (place / pick up the template item). */
-    public IndexModifier<ItemResource> getMenuModifier() {
-        return this.menuHandler;
     }
 
     // ------------------------------------------------------------------
@@ -101,7 +93,7 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
 
     /** The stored item, always a single unit internally. */
     public ItemStack getStoredItem() {
-        return this.storedItem;
+        return this.itemHandler.getInternalStack();
     }
 
     public boolean isInfinite() {
@@ -171,8 +163,12 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
      */
     private boolean effectivelyInfinite() {
         return this.infiniteModeEnabled
-                && !this.storedItem.isEmpty()
+                && !this.itemHandler.getInternalStack().isEmpty()
                 && InfinityWhatConfig.infiniteEnabled();
+    }
+
+    public IItemHandler getItemHandler() {
+        return this.itemHandler;
     }
 
     @Override
@@ -205,11 +201,11 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     }
 
     /**
-     * Tries to insert the generated item into selected adjacent blocks that expose a NeoForge
-     * {@code ResourceHandler<ItemResource>} (chests, hoppers, AE2 interfaces, pipe endpoints, ...).
+     * Tries to insert the generated item into selected adjacent blocks that expose a Forge
+     * {@link IItemHandler} (chests, hoppers, AE2 interfaces, pipe endpoints, ...).
      */
     private void pushToNeighbors() {
-        ItemStack stored = this.storedItem;
+        ItemStack stored = this.itemHandler.getInternalStack();
         if (stored.isEmpty() || this.level == null) {
             return;
         }
@@ -248,7 +244,7 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
-        ItemStack stored = this.storedItem;
+        ItemStack stored = this.itemHandler.getInternalStack();
         if (!stored.isEmpty()) {
             output.store(KEY_ITEM, ItemStack.CODEC, stored);
         }
@@ -261,11 +257,11 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
-        this.storedItem = ItemStack.EMPTY;
+        this.itemHandler.setInternalEmpty();
         ItemStack loaded = input.read(KEY_ITEM, ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
         if (!loaded.isEmpty()) {
             // The slot always holds exactly one template item.
-            this.storedItem = loaded.copyWithCount(1);
+            this.itemHandler.setInternalStack(loaded.copyWithCount(1));
         }
         this.infiniteModeEnabled = input.getBooleanOr(KEY_INFINITE_MODE, false);
         this.outputEnabled = input.getBooleanOr(KEY_OUTPUT_ENABLED, false);
@@ -300,11 +296,76 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     // ------------------------------------------------------------------
 
     /**
-     * The {@code ResourceHandler<ItemResource>} given to pipes and AE2 storage buses. While the
-     * generator is infinite it reports {@link Long#MAX_VALUE} for the single slot and never
-     * depletes on extraction, so the network sees an effectively unbounded amount instead of
-     * one item. Insertion is always limited to one template item.
+     * The {@link IItemHandler} given to pipes and AE2 storage buses. While the generator is
+     * infinite it reports {@link Integer#MAX_VALUE} for the single slot and never depletes on
+     * extraction, so the network sees an effectively unbounded amount instead of one item.
+     * Insertion is always limited to one template item.
      */
+    private final class CapabilityItemHandler implements IItemHandler {
+
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            if (slot != 0) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack stored = itemHandler.getInternalStack();
+            if (stored.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            if (effectivelyInfinite()) {
+                // ItemStack#count is an int, so Integer.MAX_VALUE is the largest amount the
+                // engine can express; AE2 reads this count and shows the slot as unbounded.
+                return stored.copyWithCount(Integer.MAX_VALUE);
+            }
+            return stored.copy();
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (slot != 0 || stack.isEmpty()) {
+                return stack;
+            }
+            // Only one item is ever accepted, and never while the infinite source is active.
+            if (effectivelyInfinite() || !itemHandler.getInternalStack().isEmpty()) {
+                return stack;
+            }
+            return itemHandler.insertItem(0, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != 0 || amount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack stored = itemHandler.getInternalStack();
+            if (stored.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            if (effectivelyInfinite()) {
+                // Unlimited source: never deplete, hand out up to one normal stack per call.
+                return stored.copyWithCount(Math.min(amount, stored.getMaxStackSize()));
+            }
+            return itemHandler.extractItem(0, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return effectivelyInfinite() ? Integer.MAX_VALUE : 1;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot == 0 && !effectivelyInfinite() && itemHandler.getInternalStack().isEmpty()
+                    && InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        }
+    }
+
+    /** NeoForge's transactional automation capability used from 1.21.9 onward. */
     private final class GeneratorResourceHandler extends SnapshotJournal<ItemStack>
             implements ResourceHandler<ItemResource> {
 
@@ -316,13 +377,14 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
         @Override
         public ItemResource getResource(int index) {
             checkIndex(index);
-            return storedItem.isEmpty() ? ItemResource.EMPTY : ItemResource.of(storedItem);
+            ItemStack stored = itemHandler.getInternalStack();
+            return stored.isEmpty() ? ItemResource.EMPTY : ItemResource.of(stored);
         }
 
         @Override
         public long getAmountAsLong(int index) {
             checkIndex(index);
-            if (storedItem.isEmpty()) return 0;
+            if (itemHandler.getInternalStack().isEmpty()) return 0;
             return effectivelyInfinite() ? Long.MAX_VALUE : 1L;
         }
 
@@ -335,7 +397,8 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
         @Override
         public boolean isValid(int index, ItemResource resource) {
             checkIndex(index);
-            return !resource.isEmpty() && !effectivelyInfinite() && storedItem.isEmpty()
+            return !resource.isEmpty() && !effectivelyInfinite()
+                    && itemHandler.getInternalStack().isEmpty()
                     && InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(resource.getItem()));
         }
 
@@ -344,29 +407,30 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
             checkIndex(index);
             if (resource.isEmpty() || amount <= 0 || !isValid(index, resource)) return 0;
             updateSnapshots(transaction);
-            storedItem = resource.toStack(1);
+            itemHandler.setInternalStack(resource.toStack(1));
             return 1;
         }
 
         @Override
         public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
             checkIndex(index);
-            if (resource.isEmpty() || amount <= 0 || storedItem.isEmpty()
-                    || !ItemResource.of(storedItem).equals(resource)) return 0;
+            ItemStack stored = itemHandler.getInternalStack();
+            if (resource.isEmpty() || amount <= 0 || stored.isEmpty()
+                    || !ItemResource.of(stored).equals(resource)) return 0;
             if (effectivelyInfinite()) return amount;
             updateSnapshots(transaction);
-            storedItem = ItemStack.EMPTY;
+            itemHandler.setInternalEmpty();
             return 1;
         }
 
         @Override
         protected ItemStack createSnapshot() {
-            return storedItem.copy();
+            return itemHandler.getInternalStack().copy();
         }
 
         @Override
         protected void revertToSnapshot(ItemStack snapshot) {
-            storedItem = snapshot.copy();
+            itemHandler.setInternalStack(snapshot.copy());
         }
 
         @Override
@@ -380,97 +444,69 @@ public class InfItemGeneratorBlockEntity extends BlockEntity implements MenuProv
     }
 
     // ------------------------------------------------------------------
-    // Menu item handler (always a plain one-item view for the GUI slot)
+    // Item handler
     // ------------------------------------------------------------------
 
-    /**
-     * Menu-facing view of the single slot. It mirrors {@link GeneratorResourceHandler} but always
-     * reports a count of one, so the GUI slot renders the plain template item instead of the huge
-     * capability count. Implements {@link IndexModifier} so the menu slot can place, swap and
-     * pick up the template item directly.
-     */
-    private final class MenuItemHandler extends SnapshotJournal<ItemStack>
-            implements ResourceHandler<ItemResource>, IndexModifier<ItemResource> {
+    private final class GeneratorItemHandler extends ItemStackHandler {
 
-        @Override
-        public int size() {
-            return 1;
+        GeneratorItemHandler() {
+            super(1);
+        }
+
+        ItemStack getInternalStack() {
+            return this.stacks.get(0);
+        }
+
+        void setInternalStack(ItemStack stack) {
+            this.stacks.set(0, stack);
+        }
+
+        void setInternalEmpty() {
+            this.stacks.set(0, ItemStack.EMPTY);
         }
 
         @Override
-        public ItemResource getResource(int index) {
-            checkIndex(index);
-            return storedItem.isEmpty() ? ItemResource.EMPTY : ItemResource.of(storedItem);
-        }
-
-        @Override
-        public long getAmountAsLong(int index) {
-            checkIndex(index);
-            return storedItem.isEmpty() ? 0 : 1;
-        }
-
-        @Override
-        public long getCapacityAsLong(int index, ItemResource resource) {
-            checkIndex(index);
+        public int getSlotLimit(int slot) {
             // The generator always holds exactly one template item.
             return 1;
         }
 
         @Override
-        public boolean isValid(int index, ItemResource resource) {
-            checkIndex(index);
+        public boolean isItemValid(int slot, ItemStack stack) {
             // A single item may be inserted while the slot is empty; the slot is locked otherwise.
-            return !resource.isEmpty() && !effectivelyInfinite() && storedItem.isEmpty()
-                    && InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(resource.getItem()));
+            return slot == 0 && this.stacks.get(0).isEmpty()
+                    && InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(stack.getItem()));
         }
 
         @Override
-        public int insert(int index, ItemResource resource, int amount, TransactionContext transaction) {
-            checkIndex(index);
-            if (resource.isEmpty() || amount <= 0 || !isValid(index, resource)) return 0;
-            updateSnapshots(transaction);
-            storedItem = resource.toStack(1);
-            return 1;
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (effectivelyInfinite() || stack.isEmpty() || !this.stacks.get(0).isEmpty()) {
+                return stack;
+            }
+            // super honours getSlotLimit (1) and isItemValid, so at most one unit is stored,
+            // and it fires onContentsChanged (which marks the block entity dirty) itself.
+            return super.insertItem(slot, stack, simulate);
         }
 
         @Override
-        public int extract(int index, ItemResource resource, int amount, TransactionContext transaction) {
-            checkIndex(index);
-            if (resource.isEmpty() || amount <= 0 || storedItem.isEmpty()
-                    || !ItemResource.of(storedItem).equals(resource)) return 0;
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != 0 || amount <= 0) {
+                return ItemStack.EMPTY;
+            }
+            ItemStack existing = this.stacks.get(0);
+            if (existing.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
             if (effectivelyInfinite()) {
                 // Unlimited source: hand out up to one normal stack per call, never deplete.
-                return Math.min(amount, resource.getMaxStackSize());
+                return existing.copyWithCount(Math.min(amount, existing.getMaxStackSize()));
             }
-            updateSnapshots(transaction);
-            storedItem = ItemStack.EMPTY;
-            return 1;
+            return super.extractItem(slot, amount, simulate);
         }
 
         @Override
-        public void set(int index, ItemResource resource, int amount) {
-            checkIndex(index);
-            storedItem = resource.isEmpty() || amount <= 0 ? ItemStack.EMPTY : resource.toStack(1);
+        protected void onContentsChanged(int slot) {
             markUpdated();
-        }
-
-        @Override
-        protected ItemStack createSnapshot() {
-            return storedItem.copy();
-        }
-
-        @Override
-        protected void revertToSnapshot(ItemStack snapshot) {
-            storedItem = snapshot.copy();
-        }
-
-        @Override
-        protected void onRootCommit(ItemStack snapshot) {
-            markUpdated();
-        }
-
-        private void checkIndex(int index) {
-            if (index != 0) throw new IndexOutOfBoundsException(index);
         }
     }
 }

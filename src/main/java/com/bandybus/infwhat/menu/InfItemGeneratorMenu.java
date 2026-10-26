@@ -2,21 +2,21 @@ package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
+import com.bandybus.infwhat.config.InfinityWhatConfig;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.util.Prediction;
-import net.neoforged.neoforge.transfer.item.ItemResource;
-import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
-import net.neoforged.neoforge.transfer.transaction.Transaction;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
@@ -67,23 +67,31 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
             this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
         }
 
-        this.generatorSlot = new GeneratorSlot(this.blockEntity, 0, SLOT_X, SLOT_Y);
+        this.generatorSlot = new GeneratorSlot(this.blockEntity, this.blockEntity.getItemHandler(),
+                0, SLOT_X, SLOT_Y);
         this.addSlot(this.generatorSlot);
     }
 
-    /** Slot backed by the generator's menu handler; picking the item up is blocked while infinite. */
-    private static class GeneratorSlot extends ResourceHandlerSlot {
+    /** Slot backed by the generator's item handler; picking the item up is blocked while infinite. */
+    private static class GeneratorSlot extends SlotItemHandler {
         private final InfItemGeneratorBlockEntity blockEntity;
         private boolean visible = true;
 
-        GeneratorSlot(InfItemGeneratorBlockEntity blockEntity, int index, int x, int y) {
-            super(blockEntity.getMenuHandler(), blockEntity.getMenuModifier(), index, x, y);
+        GeneratorSlot(InfItemGeneratorBlockEntity blockEntity, IItemHandler itemHandler, int index, int x, int y) {
+            super(itemHandler, index, x, y);
             this.blockEntity = blockEntity;
         }
 
         @Override
         public boolean mayPickup(Player player) {
             return !this.blockEntity.isInfinite() && super.mayPickup(player);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            // Honour the item filter even if the backing handler is bypassed by click routing.
+            return InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                    && super.mayPlace(stack);
         }
 
         @Override
@@ -203,11 +211,11 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
      * All other click types are ignored while the slot is locked in infinite mode.
      */
     @Override
-    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
         if (slotId == GENERATOR_SLOT_INDEX && this.blockEntity.isInfinite()) {
-            if (clickType == ContainerInput.PICKUP && button == 0) {
+            if (clickType == ClickType.PICKUP && button == 0) {
                 takeFromInfinite(player, 1, false);
-            } else if (clickType == ContainerInput.QUICK_MOVE && button == 0) {
+            } else if (clickType == ClickType.QUICK_MOVE && button == 0) {
                 takeFromInfinite(player, getInfiniteStackSize(), true);
             }
             return;
@@ -226,23 +234,13 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
      * depleted.
      */
     private void takeFromInfinite(Player player, int amount, boolean toInventory) {
-        ItemStack stored = this.blockEntity.getStoredItem();
-        if (stored.isEmpty()) {
+        ItemStack taken = this.blockEntity.getItemHandler().extractItem(0, amount, false);
+        if (taken.isEmpty()) {
             return;
         }
-        int extracted;
-        try (Transaction transaction = Transaction.openRoot()) {
-            extracted = this.blockEntity.getMenuHandler()
-                    .extract(0, ItemResource.of(stored), amount, transaction);
-            transaction.commit();
-        }
-        if (extracted <= 0) {
-            return;
-        }
-        ItemStack taken = stored.copyWithCount(extracted);
         if (toInventory) {
             if (!player.getInventory().add(taken)) {
-                player.drop(taken, false, Prediction.SERVER_ONLY);
+                player.drop(taken, false);
             }
             return;
         }
@@ -259,12 +257,12 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
             if (leftover > 0) {
                 ItemStack rest = taken.copyWithCount(leftover);
                 if (!player.getInventory().add(rest)) {
-                    player.drop(rest, false, Prediction.SERVER_ONLY);
+                    player.drop(rest, false);
                 }
             }
             this.setCarried(carried);
         } else if (!player.getInventory().add(taken)) {
-            player.drop(taken, false, Prediction.SERVER_ONLY);
+            player.drop(taken, false);
         }
     }
 }

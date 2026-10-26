@@ -5,7 +5,9 @@
       "conditions": {
         "items": [
           {
-            "items": "minecraft:bucket"
+            "items": [
+              "minecraft:bucket"
+            ]
           }
         ]
       },
@@ -28,5 +30,6 @@
     "recipes": [
       "infwhat:inf_fluid_generator"
     ]
-  }
+  },
+  "sends_telemetry_event": false
 }
