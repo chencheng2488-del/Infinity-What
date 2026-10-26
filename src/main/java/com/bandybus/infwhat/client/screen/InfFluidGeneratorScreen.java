@@ -1,39 +1,38 @@
 package com.bandybus.infwhat.client.screen;
 
 import com.bandybus.infwhat.InfinityWhat;
-import com.bandybus.infwhat.client.network.ClientRateRequestSender;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
 import com.bandybus.infwhat.menu.InfFluidGeneratorMenu;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
-import net.minecraft.resources.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.sounds.SoundEvents;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.core.registries.BuiltInRegistries;
-import org.lwjgl.sdl.SDLScancode;
+import com.bandybus.infwhat.network.ModNetworking;
+import org.lwjgl.glfw.GLFW;
 
 import java.math.BigDecimal;
 
 /** Fluid generator main page and its active-output I/O settings page. */
 public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGeneratorMenu> {
 
-    public static final Identifier TEXTURE =
-            Identifier.fromNamespaceAndPath(InfinityWhat.MOD_ID,
+    public static final ResourceLocation TEXTURE =
+            ResourceLocation.fromNamespaceAndPath(InfinityWhat.MOD_ID,
                     "textures/gui/container/inf_fluid_generator.png");
-    private static final Identifier IO_TEXTURE = Identifier.fromNamespaceAndPath(
+    private static final ResourceLocation IO_TEXTURE = ResourceLocation.fromNamespaceAndPath(
             InfinityWhat.MOD_ID, "textures/gui/container/inf_source_io.png");
 
     private static final int GUI_WIDTH = 184;
@@ -91,7 +90,9 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     private EditBox outputRateField;
 
     public InfFluidGeneratorScreen(InfFluidGeneratorMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, GUI_WIDTH, GUI_HEIGHT);
+        super(menu, inventory, title);
+        this.imageWidth = GUI_WIDTH;
+        this.imageHeight = GUI_HEIGHT;
         this.titleLabelX = 12;
         this.titleLabelY = 8;
         this.inventoryLabelX = 12;
@@ -110,17 +111,16 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         this.outputRateField.setTextColor(BUTTON_TEXT);
         this.outputRateField.setBordered(false);
         this.outputRateField.setVisible(this.ioPage);
-        this.addRenderableWidget(this.outputRateField);
+        this.addWidget(this.outputRateField);
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         if (this.ioPage) {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, IO_TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
+            graphics.blit(RenderType::guiTextured, IO_TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
                     GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
         } else {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
+            graphics.blit(RenderType::guiTextured, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
                     this.imageWidth, this.imageHeight, TEXTURE_WIDTH, TEXTURE_HEIGHT);
         }
         if (!this.ioPage) {
@@ -128,23 +128,35 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         }
     }
 
-    private void renderFluid(GuiGraphicsExtractor graphics) {
+    private void renderFluid(GuiGraphics graphics) {
         FluidStack stack = this.menu.getFluidStack();
         if (stack.isEmpty()) {
             return;
         }
 
-        FluidModel fluidModel = Minecraft.getInstance().getModelManager().getFluidStateModelSet()
-                .get(stack.getFluid().defaultFluidState());
-        TextureAtlasSprite sprite = fluidModel.stillMaterial().sprite();
+        IClientFluidTypeExtensions extensions = IClientFluidTypeExtensions.of(stack.getFluid());
+        ResourceLocation stillTexture = extensions.getStillTexture(stack);
+        if (stillTexture == null) {
+            return;
+        }
 
         int fill = Math.round(InfFluidGeneratorMenu.TANK_HEIGHT * this.menu.getFillRatio());
         if (fill <= 0) {
             return;
         }
 
-        int tint = fluidModel.fluidTintSource() == null
-                ? 0xFFFFFFFF : fluidModel.fluidTintSource().colorAsStack(stack);
+        TextureAtlasSprite sprite = Minecraft.getInstance()
+                .getTextureAtlas(TextureAtlas.LOCATION_BLOCKS)
+                .apply(stillTexture);
+        int tint = extensions.getTintColor(stack);
+        float alpha = ((tint >> 24) & 0xFF) / 255.0F;
+        if (alpha <= 0.0F) {
+            alpha = 1.0F;
+        }
+        float red = ((tint >> 16) & 0xFF) / 255.0F;
+        float green = ((tint >> 8) & 0xFF) / 255.0F;
+        float blue = (tint & 0xFF) / 255.0F;
+
         int x = this.leftPos + InfFluidGeneratorMenu.TANK_X;
         int yBottom = this.topPos + InfFluidGeneratorMenu.TANK_Y + InfFluidGeneratorMenu.TANK_HEIGHT;
         int yTop = yBottom - fill;
@@ -154,47 +166,50 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         graphics.enableScissor(x, yTop, x + InfFluidGeneratorMenu.TANK_WIDTH, yBottom);
         for (int drawn = 0; drawn < fill; drawn += tile) {
             int tileY = yBottom - drawn - tile;
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, tileY,
-                    InfFluidGeneratorMenu.TANK_WIDTH, tile, tint);
+            graphics.blitSprite(RenderType::guiTextured, sprite, x, tileY,
+                    InfFluidGeneratorMenu.TANK_WIDTH, tile);
         }
         graphics.disableScissor();
     }
 
     @Override
-    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!this.ioPage) {
-            graphics.text(this.font, this.title, this.titleLabelX, this.titleLabelY,
+            graphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY,
                     COLOR_TITLE, false);
         }
-        graphics.text(this.font, this.playerInventoryTitle,
+        graphics.drawString(this.font, this.playerInventoryTitle,
                 this.inventoryLabelX, this.inventoryLabelY, COLOR_TITLE, false);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
         // Keep JEI, FTB and other third-party controls in their original screen coordinates.
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
 
         if (this.ioPage) {
             renderIoPage(graphics, mouseX, mouseY);
+            this.outputRateField.render(graphics, mouseX, mouseY, partialTick);
         } else {
             renderFluidInfo(graphics);
             renderMainButtons(graphics, mouseX, mouseY);
         }
 
+        this.renderTooltip(graphics, mouseX, mouseY);
         renderControlTooltip(graphics, mouseX, mouseY);
     }
 
-    private void renderFluidInfo(GuiGraphicsExtractor graphics) {
+    private void renderFluidInfo(GuiGraphics graphics) {
         FluidStack stack = this.menu.getFluidStack();
         if (stack.isEmpty()) {
-            graphics.text(this.font,
+            graphics.drawString(this.font,
                     Component.translatable("gui." + InfinityWhat.MOD_ID + ".empty"),
                     this.leftPos + TEXT_X, this.topPos + 27, COLOR_TEXT, false);
             return;
         }
 
-        Identifier key = BuiltInRegistries.FLUID.getKey(stack.getFluid());
+        ResourceLocation key = BuiltInRegistries.FLUID.getKey(stack.getFluid());
         String id = key == null ? "unknown" : key.toString();
         String amount;
         if (this.menu.isInfinite()) {
@@ -230,15 +245,15 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         return millibuckets + " mB";
     }
 
-    private void drawTruncated(GuiGraphicsExtractor graphics, Component text, int y, int color) {
+    private void drawTruncated(GuiGraphics graphics, Component text, int y, int color) {
         String value = text.getString();
         if (this.font.width(value) > TEXT_MAX_WIDTH) {
             value = this.font.plainSubstrByWidth(value, TEXT_MAX_WIDTH - this.font.width("...")) + "...";
         }
-        graphics.text(this.font, value, this.leftPos + TEXT_X, this.topPos + y, color, false);
+        graphics.drawString(this.font, value, this.leftPos + TEXT_X, this.topPos + y, color, false);
     }
 
-    private void renderMainButtons(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void renderMainButtons(GuiGraphics graphics, int mouseX, int mouseY) {
         drawButton(graphics, MAIN_CLEAR_X, MAIN_CLEAR_Y, MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.clear"), false,
                 isHovering(MAIN_CLEAR_X, MAIN_CLEAR_Y, MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT, mouseX, mouseY));
@@ -247,8 +262,8 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 isHovering(MAIN_IO_X, MAIN_CLEAR_Y, MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT, mouseX, mouseY));
     }
 
-    private void renderIoPage(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        graphics.text(this.font,
+    private void renderIoPage(GuiGraphics graphics, int mouseX, int mouseY) {
+        graphics.drawString(this.font,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.title"),
                 this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
 
@@ -261,7 +276,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 this.menu.isOutputEnabled(),
                 isHovering(IO_OUTPUT_X, IO_OUTPUT_Y, IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT, mouseX, mouseY));
 
-        graphics.text(this.font,
+        graphics.drawString(this.font,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.label"),
                 this.leftPos + IO_RATE_LABEL_X, this.topPos + IO_RATE_LABEL_Y, BUTTON_TEXT, false);
         drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
@@ -283,7 +298,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         }
     }
 
-    private void drawButton(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
+    private void drawButton(GuiGraphics graphics, int x, int y, int width, int height,
                             Component label, boolean enabled, boolean hovered) {
         int absoluteX = this.leftPos + x;
         int absoluteY = this.topPos + y;
@@ -291,19 +306,15 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 absoluteY + height + 1, BUTTON_BORDER);
         int fill = hovered ? BUTTON_HOVER : (enabled ? BUTTON_ON : BUTTON_OFF);
         graphics.fill(absoluteX, absoluteY, absoluteX + width, absoluteY + height, fill);
-        graphics.text(this.font, label,
-                absoluteX + (width - this.font.width(label)) / 2,
-                absoluteY + (height - 8) / 2, BUTTON_TEXT);
+        graphics.drawCenteredString(this.font, label,
+                absoluteX + width / 2, absoluteY + (height - 8) / 2, BUTTON_TEXT);
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
-        int button = event.button();
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!this.ioPage && (button == 0 || button == 1) && isOverTank(mouseX, mouseY)) {
-            this.minecraft.gameMode.handleContainerInput(this.menu.containerId,
-                    InfFluidGeneratorMenu.FLUID_SLOT_INDEX, button, ContainerInput.PICKUP, this.minecraft.player);
+            this.minecraft.gameMode.handleInventoryMouseClick(this.menu.containerId,
+                    InfFluidGeneratorMenu.FLUID_SLOT_INDEX, button, ClickType.PICKUP, this.minecraft.player);
             return true;
         }
 
@@ -357,23 +368,21 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 }
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.ioPage && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             returnToMainPage();
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
-                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+        if (this.ioPage && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;
         }
-        return super.keyPressed(event);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void submitOutputRate() {
@@ -393,12 +402,12 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
             if (amount < 1 || amount > com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity.MAX_OUTPUT_RATE_MB) {
                 throw new ArithmeticException("rate outside allowed range");
             }
-            ClientRateRequestSender.send(this.menu.containerId, true, amount);
+            ModNetworking.sendOutputRate(this.menu.containerId, true, amount);
         } catch (NumberFormatException | ArithmeticException exception) {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_fluid")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), true);
         }
     }
 
@@ -414,14 +423,14 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     public void onOutputRateResult(boolean success, long amount) {
         if (success) {
             this.outputRateField.setValue(formatOutputRate(amount));
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.saved")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0x55FF55))), false);
+                    .withStyle(ChatFormatting.GREEN), true);
         } else {
             this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+            this.minecraft.player.displayClientMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                    .withStyle(ChatFormatting.RED), true);
         }
     }
 
@@ -438,7 +447,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 && mouseY >= y && mouseY < y + InfFluidGeneratorMenu.TANK_HEIGHT;
     }
 
-    private void renderControlTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void renderControlTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         int x = mouseX - this.leftPos;
         int y = mouseY - this.topPos;
         Component tooltip = null;
@@ -459,7 +468,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.back.tooltip");
         }
         if (tooltip != null) {
-            graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+            graphics.renderTooltip(this.font, tooltip, mouseX, mouseY);
         }
     }
 

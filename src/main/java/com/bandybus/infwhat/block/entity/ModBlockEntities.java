@@ -29,9 +29,9 @@ public class ModBlockEntities {
     }
 
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(Capabilities.Fluid.BLOCK, INF_FLUID_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
-        event.registerBlockEntity(Capabilities.Item.BLOCK, INF_ITEM_GENERATOR.get(),
-                (blockEntity, side) -> blockEntity.getResourceHandler());
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, INF_FLUID_GENERATOR.get(),
+                (blockEntity, side) -> blockEntity.getFluidHandler());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, INF_ITEM_GENERATOR.get(),
+                (blockEntity, side) -> blockEntity.getCapabilityHandler());
     }
 }
