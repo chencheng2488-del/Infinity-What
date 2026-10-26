@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "infwhat:block/inf_fluid_generator"
+    }
+  }
+}

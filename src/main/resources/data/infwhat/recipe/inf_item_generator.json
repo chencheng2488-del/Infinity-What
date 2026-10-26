@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": "minecraft:chest",
+    "D": "minecraft:diamond",
+    "I": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "IDI",
+    "DCD",
+    "IDI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "infwhat:inf_item_generator"
+  },
+  "show_notification": true
+}
