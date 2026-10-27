@@ -6,4 +6,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'InfWh Fabric 1.21.10'
+rootProject.name = 'InfWh Fabric 1.21.11'
