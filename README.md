@@ -1,4 +1,4 @@
-﻿# Infinity What
+# Infinity What
 
 简体中文 | [English](#english)
 
