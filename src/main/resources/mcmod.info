@@ -2,11 +2,11 @@
   {
     "modid": "infwhat",
     "name": "Infinity What",
-    "description": "Infinite fluid and item generators with configurable active output.",
+    "description": "Infinity What: because farming is for peasants. Put one bucket of fluid in and get an endless ocean; put one item in and get an infinite pile. Fine-tune output rates and sides, then clone your machine settings with the Config Replicator. Everything is configurable - so when your friends cry \"OP!\", just smile and flip the balance switch.",
     "version": "2.0.0b",
     "mcversion": "1.12.2",
     "authorList": [
-      "bandybus"
+      "BandyBus"
     ],
     "url": "https://github.com/chencheng2488-del/Infinity-What"
   }
