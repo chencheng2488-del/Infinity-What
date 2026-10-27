@@ -1,0 +1,55 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
+    }
+}
+
+apply plugin: 'forge'
+
+version = '2.0.0b'
+group = 'com.bandybus.infwhat'
+archivesBaseName = 'infwhat-1.7.10-forge'
+
+sourceCompatibility = targetCompatibility = '1.8'
+
+minecraft {
+    version = '1.7.10-10.13.4.1614-1.7.10'
+    runDir = 'run'
+    mappings = 'stable_12'
+}
+
+dependencies {
+}
+
+/*
+ * The legacy Mojang S3 endpoints that ForgeGradle 1.2 uses for the vanilla client jar, the server
+ * jar and the version json have been retired, so those three downloads fail on every build. They
+ * are disabled here; the matching files are pre-seeded in the ForgeGradle cache
+ * (~/.gradle/caches/minecraft) and are picked up by the merge and deobfuscation steps.
+ */
+afterEvaluate {
+    ['downloadClient', 'downloadServer', 'getVersionJson'].each { name ->
+        def downloadTask = tasks.findByName(name)
+        if (downloadTask != null) {
+            downloadTask.enabled = false
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+                "Specification-Title"     : "infwhat",
+                "Specification-Vendor"    : "bandybus",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : "${version}",
+                "Implementation-Vendor"   : "bandybus",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
