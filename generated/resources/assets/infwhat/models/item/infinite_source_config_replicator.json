@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "infwhat:item/infinite_source_config_replicator"
-  }
-}
