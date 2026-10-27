@@ -1,0 +1,19 @@
+rootProject.name = 'InfWh-Forge-1.8.9'
+
+// ForgeGradle 2.1.2 still queries the retired export.mcpbot.bspk.rs endpoint for its version
+// index. If that request fails during project evaluation it throws a NullPointerException.
+// The plugin accepts a cached index file that is less than 60 seconds old, so refresh the cached
+// copy from the archived data shipped with this project on every build. This keeps both command
+// line builds and IDE imports working without network access to the dead service.
+def mcpCacheDir = new File(gradle.gradleUserHomeDir, 'caches/minecraft')
+mcpCacheDir.mkdirs()
+def mcpCacheFile = new File(mcpCacheDir, 'McpMappings.json')
+def mcpArchive = new File(settingsDir, 'gradle/mcp-versions.json')
+if (mcpArchive.isFile()) {
+    def archivedBytes = mcpArchive.bytes
+    def cachedBytes = mcpCacheFile.isFile() ? mcpCacheFile.bytes : null
+    if (cachedBytes == null || !java.util.Arrays.equals(cachedBytes, archivedBytes)) {
+        mcpCacheFile.bytes = archivedBytes
+    }
+    mcpCacheFile.setLastModified(System.currentTimeMillis())
+}

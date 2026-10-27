@@ -1,0 +1,13 @@
+[
+  {
+    "modid": "infwhat",
+    "name": "Infinity What",
+    "description": "Infinite fluid and item generators with configurable active output.",
+    "version": "2.0.0b",
+    "mcversion": "1.8.9",
+    "authorList": [
+      "bandybus"
+    ],
+    "url": "https://github.com/chencheng2488-del/Infinity-What"
+  }
+]
