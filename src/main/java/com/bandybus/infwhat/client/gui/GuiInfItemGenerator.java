@@ -109,10 +109,12 @@ public class GuiInfItemGenerator extends GuiContainer {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         if (this.ioPage) {
             this.mc.getTextureManager().bindTexture(IO_TEXTURE);
-            this.drawTexturedModalRect(this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
+            drawModalRectWithCustomSizedTexture(this.guiLeft, this.guiTop, 0, 0,
+                    this.xSize, this.ySize, 184, 178);
         } else {
             this.mc.getTextureManager().bindTexture(TEXTURE);
-            this.drawTexturedModalRect(this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
+            drawModalRectWithCustomSizedTexture(this.guiLeft, this.guiTop, 0, 0,
+                    this.xSize, this.ySize, 368, 178);
         }
     }
 
