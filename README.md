@@ -1,4 +1,4 @@
-# Infinity What
+﻿# Infinity What
 
 简体中文 | [English](#english)
 
@@ -24,6 +24,8 @@
 
 | Minecraft | 加载器 | 加载器版本 |
 |---|---|---|
+| 1.8.9 | Forge | 11.15.1.2318 |
+| 1.12.2 | Forge | 14.23.5.2860 |
 | 1.20.1 | Forge | 47.4.10+ |
 | 1.20.1 | Fabric | 0.92.12+1.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
@@ -62,13 +64,13 @@ Fabric 行的版本号是 **Fabric API** 版本；Fabric Loader 统一要求 0.1
 
 1. 安装与你的游戏版本对应的 Minecraft Forge、NeoForge 或 Fabric。
 2. 将匹配的 jar 放入 `mods` 文件夹。
-3. 启动游戏。首次启动时会生成 `config/infwhat.toml`。
+3. 启动游戏。首次启动时会生成 `config/infwhat.toml`（1.8.9 / 1.12.2 为 `config/infwhat.cfg`）。
 
 Forge / NeoForge 版无需前置；Fabric 版需要 **Fabric API**（按下表版本安装）与 Fabric Loader 0.16+。
 
 ### 配置
 
-所有行为由 `config/infwhat.toml` 控制。
+所有行为由 `config/infwhat.toml` 控制（1.8.9 / 1.12.2 使用 `config/infwhat.cfg`，键名完全相同）。
 
 ```toml
 [balance]
@@ -106,6 +108,7 @@ Forge / NeoForge 版无需前置；Fabric 版需要 **Fabric API**（按下表�
 
 | Minecraft | JDK |
 |---|---|
+| 1.8.9 – 1.12.2 | 8 |
 | 1.20.1 – 1.20.4 | 17 |
 | 1.20.6 – 1.21.11 | 21 |
 | 26.x | 25 |
@@ -136,6 +139,8 @@ Every branch of this repository is a **complete, standalone project for one Mine
 
 | Minecraft | Loader | Loader version |
 |---|---|---|
+| 1.8.9 | Forge | 11.15.1.2318 |
+| 1.12.2 | Forge | 14.23.5.2860 |
 | 1.20.1 | Forge | 47.4.10+ |
 | 1.20.1 | Fabric | 0.92.12+1.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
@@ -174,13 +179,13 @@ The version shown for Fabric rows is the **Fabric API** version; Fabric Loader 0
 
 1. Install Minecraft Forge, NeoForge or Fabric for your game version.
 2. Drop the matching jar into your `mods` folder.
-3. Launch the game. `config/infwhat.toml` is generated on first start.
+3. Launch the game. `config/infwhat.toml` is generated on first start (1.8.9 / 1.12.2 use `config/infwhat.cfg`).
 
 The Forge / NeoForge builds have no dependencies; the Fabric builds require **Fabric API** (version as listed above) and Fabric Loader 0.16+.
 
 ### Configuration
 
-All behaviour is controlled by `config/infwhat.toml`.
+All behaviour is controlled by `config/infwhat.toml` (1.8.9 / 1.12.2 use `config/infwhat.cfg` with the same keys).
 
 ```toml
 [balance]
@@ -218,6 +223,7 @@ The jar lands in `build/libs/`. Java version required per branch:
 
 | Minecraft | JDK |
 |---|---|
+| 1.8.9 – 1.12.2 | 8 |
 | 1.20.1 – 1.20.4 | 17 |
 | 1.20.6 – 1.21.11 | 21 |
 | 26.x | 25 |
