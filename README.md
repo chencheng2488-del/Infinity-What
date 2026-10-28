@@ -1,4 +1,4 @@
-# Infinity What
+﻿# Infinity What
 
 简体中文 | [English](#english)
 
@@ -60,6 +60,8 @@
 | 26.3 | NeoForge | 26.3.0.83 |
 
 Fabric 行的版本号是 **Fabric API** 版本；Fabric Loader 统一要求 0.16 及以上（实测 0.20.1）。NeoForge 行是 NeoForge 版本。
+
+`26.3` 的 NeoForge 工程位于仓库默认分支 `main`，其余版本各自对应同名分支。
 
 ### 安装
 
@@ -176,6 +178,8 @@ Every branch of this repository is a **complete, standalone project for one Mine
 | 26.3 | NeoForge | 26.3.0.83 |
 
 The version shown for Fabric rows is the **Fabric API** version; Fabric Loader 0.16+ is required (tested with 0.20.1). NeoForge rows show the NeoForge version.
+
+The 26.3 NeoForge project lives on the repository's default branch `main`; every other version has its own same-named branch.
 
 ### Installation
 
