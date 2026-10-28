@@ -1,8 +1,7 @@
 {
   "pack": {
-    "description": {
-      "text": "${mod_name} resources"
-    },
-    "pack_format": 15
+    "min_format": 75,
+    "max_format": 94,
+    "description": "Infinity What resources"
   }
 }
