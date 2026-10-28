@@ -1,6 +1,7 @@
 {
   "pack": {
     "pack_format": 34,
+    "supported_formats": [34, 48],
     "description": "Infinity What resources"
   }
 }
