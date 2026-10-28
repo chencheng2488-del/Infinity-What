@@ -1,4 +1,4 @@
-# Infinity What
+﻿# Infinity What
 
 简体中文 | [English](#english)
 
@@ -46,7 +46,7 @@
 | 1.21.8 | Fabric | 0.136.1+1.21.8 |
 | 1.21.8 | NeoForge | 21.8.57 |
 | 1.21.10 | Fabric | 0.138.4+1.21.10 |
-| 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.10 | NeoForge | 21.10.64 |
 | 1.21.11 | Fabric | 0.141.6+1.21.11 |
 | 1.21.11 | NeoForge | 21.11.48 |
 | 26.1 | Fabric | 0.145.1+26.1 |
@@ -161,7 +161,7 @@ Every branch of this repository is a **complete, standalone project for one Mine
 | 1.21.8 | Fabric | 0.136.1+1.21.8 |
 | 1.21.8 | NeoForge | 21.8.57 |
 | 1.21.10 | Fabric | 0.138.4+1.21.10 |
-| 1.21.10 | NeoForge | 21.10.63 |
+| 1.21.10 | NeoForge | 21.10.64 |
 | 1.21.11 | Fabric | 0.141.6+1.21.11 |
 | 1.21.11 | NeoForge | 21.11.48 |
 | 26.1 | Fabric | 0.145.1+26.1 |
