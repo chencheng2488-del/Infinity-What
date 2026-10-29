@@ -2,14 +2,14 @@ package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorageUtil;
+import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -17,9 +17,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
@@ -80,9 +78,8 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
 
     /**
      * Direct bucket interaction with the tank slot, mirroring AE2: while the GUI is open, a
-     * fluid container on the cursor can be exchanged with the tank. Right-click empties the
-     * held container into the tank ("put in"), left-click fills the held container from the
-     * tank ("take out"). Without an open GUI the block only exposes its fluid storage.
+     * fluid container on the cursor can be exchanged with the tank, in whichever direction is
+     * possible. Without an open GUI the block only exposes its fluid storage.
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
@@ -99,71 +96,32 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     }
 
     /**
-     * Temporarily swaps the cursor stack into the main hand so Fabric's container helper can act
-     * on it, then restores the hand and takes the resulting container back to the cursor.
+     * Exchanges fluid between the cursor stack and the tank. The direction is decided by the
+     * contents: the tank first fills the held container, and if that moves nothing the held
+     * container is emptied into the tank. Mouse buttons do not influence the direction.
      */
     private void handleFluidContainer(Player player) {
-        ItemStack carried = this.getCarried();
-        if (carried.isEmpty()) {
+        if (this.getCarried().isEmpty()) {
+            return;
+        }
+        ContainerItemContext context = ContainerItemContext.ofPlayerCursor(player, this);
+        Storage<FluidVariant> itemStorage = context.find(FluidStorage.ITEM);
+        if (itemStorage == null) {
             return;
         }
         Storage<FluidVariant> tank = this.blockEntity.getFluidStorage();
-        ItemStack originalMain = player.getMainHandItem();
-        ItemStack single = carried.copyWithCount(1);
-        ItemStack result = single;
-        try {
-            player.setItemInHand(InteractionHand.MAIN_HAND, single);
-            FluidStorageUtil.interactWithFluidStorage(tank, player, InteractionHand.MAIN_HAND);
-            result = player.getMainHandItem().copy();
-        } finally {
-            player.setItemInHand(InteractionHand.MAIN_HAND, originalMain);
-        }
-
-        // Fabric's generic empty-container storage only knows the water mapping, so an empty
-        // bucket cannot be filled with an arbitrary fluid through it. Do that step explicitly.
-        if (ItemStack.matches(result, single) && single.is(Items.BUCKET)) {
-            ItemStack filled = tryFillEmptyBucket(tank);
-            if (!filled.isEmpty()) {
-                result = filled;
-            }
-        }
-
-        if (ItemStack.matches(result, single)) {
-            return;
-        }
-
-        if (carried.getCount() <= 1) {
-            this.setCarried(result);
-        } else {
-            // Only one container is converted; the rest stay on the cursor and the produced
-            // container goes to the inventory (buckets do not stack once they hold a fluid).
-            ItemStack remaining = carried.copy();
-            remaining.shrink(1);
-            if (!player.getInventory().add(result)) {
-                player.drop(result, false);
-            }
-            this.setCarried(remaining);
-        }
-        this.broadcastChanges();
-    }
-
-    /** Fills one empty bucket with whatever fluid the tank currently holds, if any. */
-    private ItemStack tryFillEmptyBucket(Storage<FluidVariant> tank) {
-        FluidVariant stored = this.blockEntity.getStoredFluid();
-        if (stored.isBlank()) {
-            return ItemStack.EMPTY;
-        }
-        Item bucket = stored.getFluid().getBucket();
-        if (bucket == Items.AIR) {
-            return ItemStack.EMPTY;
-        }
+        long moved;
         try (Transaction transaction = Transaction.openOuter()) {
-            long extracted = tank.extract(stored, FluidConstants.BUCKET, transaction);
-            if (extracted != FluidConstants.BUCKET) {
-                return ItemStack.EMPTY;
+            moved = StorageUtil.move(tank, itemStorage, variant -> true, Long.MAX_VALUE, transaction);
+            if (moved == 0L) {
+                moved = StorageUtil.move(itemStorage, tank, variant -> true, Long.MAX_VALUE, transaction);
             }
-            transaction.commit();
-            return new ItemStack(bucket);
+            if (moved > 0L) {
+                transaction.commit();
+            }
+        }
+        if (moved > 0L) {
+            this.broadcastChanges();
         }
     }
 
