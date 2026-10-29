@@ -114,22 +114,23 @@ public class InfFluidGeneratorContainer extends Container {
     public ItemStack slotClick(int slotId, int clickedButton, int mode, EntityPlayer player) {
         if (slotId == FLUID_SLOT_INDEX && mode == 0 && (clickedButton == 0 || clickedButton == 1)) {
             if (!this.world.isRemote) {
-                handleFluidContainer(player, clickedButton == 1);
+                handleFluidContainer(player);
             }
             return player.inventory.getItemStack();
         }
         return super.slotClick(slotId, clickedButton, mode, player);
     }
 
-    /** Right-click empties the held container into the tank; left-click fills it from the tank. */
-    private void handleFluidContainer(EntityPlayer player, boolean emptyContainer) {
+    /** Fills the held container from the tank first; pouring it into the tank is the fallback. */
+    private void handleFluidContainer(EntityPlayer player) {
         ItemStack carried = player.inventory.getItemStack();
         if (carried == null || carried.stackSize <= 0) {
             return;
         }
-        ItemStack result = emptyContainer
-                ? fillTankFromContainer(carried)
-                : fillContainerFromTank(carried);
+        ItemStack result = fillContainerFromTank(carried);
+        if (result == null) {
+            result = fillTankFromContainer(carried);
+        }
         if (result == null) {
             return;
         }

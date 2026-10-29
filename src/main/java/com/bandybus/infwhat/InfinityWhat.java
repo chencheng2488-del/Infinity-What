@@ -33,7 +33,7 @@ public class InfinityWhat {
     public static final String NAME = "Infinity What";
 
     /** Mod version, identical across all maintained Minecraft versions. */
-    public static final String VERSION = "2.0.0b";
+    public static final String VERSION = "2.1.0b";
 
     /** Shared logger; 1.7.10 already ships log4j 2. */
     public static final Logger LOGGER = LogManager.getLogger(MODID);

@@ -10,7 +10,7 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = '2.0.0b'
+version = '2.1.0b'
 group = 'com.bandybus.infwhat'
 archivesBaseName = 'infwhat-1.7.10-forge'
 

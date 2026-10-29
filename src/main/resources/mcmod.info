@@ -3,7 +3,7 @@
     "modid": "infwhat",
     "name": "Infinity What",
     "description": "Infinity What: because farming is for peasants. Put one bucket of fluid in and get an endless ocean; put one item in and get an infinite pile. Fine-tune output rates and sides, then clone your machine settings with the Config Replicator. Everything is configurable - so when your friends cry \"OP!\", just smile and flip the balance switch.",
-    "version": "2.0.0b",
+    "version": "2.1.0b",
     "mcversion": "1.7.10",
     "authorList": [
       "BandyBus"
