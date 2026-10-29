@@ -128,7 +128,18 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
         } else {
-            boolean moved = this.moveItemStackTo(stack, GENERATOR_SLOT_INDEX, GENERATOR_SLOT_INDEX + 1, false);
+            // 1.18.2–1.20.4 的 moveItemStackTo 在“同物品合并”时用的是物品堆叠上限而不是
+            // 槽位上限，shift-click 会把整摞并进模板槽；这里显式只放 1 个。
+            boolean moved = false;
+            Slot generatorSlot = this.slots.get(GENERATOR_SLOT_INDEX);
+            if (!stack.isEmpty() && generatorSlot.mayPlace(stack) && generatorSlot.getItem().isEmpty()) {
+                ItemStack single = stack.copy();
+                single.setCount(1);
+                generatorSlot.set(single);
+                generatorSlot.setChanged();
+                stack.shrink(1);
+                moved = true;
+            }
             if (!moved && index < PLAYER_SLOTS) {
                 moved = this.moveItemStackTo(stack, PLAYER_SLOTS, PLAYER_SLOTS + HOTBAR_SLOTS, false);
             } else if (!moved) {
