@@ -9,15 +9,18 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -25,6 +28,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import org.lwjgl.glfw.GLFW;
@@ -155,7 +159,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         }
 
         BlockTintSource tintSource = fluidModel.tintSource();
-        int tint = tintSource == null ? 0xFFFFFFFF : tintSource.color(fluidState.createLegacyBlock());
+        int tint = fluidTint(tintSource, fluidState);
         // Keep the fluid's tint but always draw it fully opaque inside the tank frame.
         int color = 0xFF000000 | (tint & 0x00FFFFFF);
 
@@ -172,6 +176,30 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                     InfFluidGeneratorMenu.TANK_WIDTH, tile, color);
         }
         graphics.disableScissor();
+    }
+
+    /**
+     * 26.x 中水这类跟随生物群系的 tint 在 color(BlockState) 里恒为 -1（白色），只有
+     * colorInWorld(...) 才会真正查询生物群系颜色。GUI 没有世界坐标，这里用客户端世界
+     * 和机器方块坐标取色；拿不到世界/坐标时退回 color(...)，自定义纯色流体仍然正确。
+     */
+    private int fluidTint(BlockTintSource tintSource, FluidState fluidState) {
+        if (tintSource == null) {
+            return 0xFFFFFFFF;
+        }
+        BlockState legacyState = fluidState.createLegacyBlock();
+        Minecraft minecraft = Minecraft.getInstance();
+        BlockAndTintGetter tintGetter = minecraft.level instanceof ClientLevel clientLevel ? clientLevel : null;
+        BlockPos pos = this.menu.getBlockEntity() == null ? null : this.menu.getBlockEntity().getBlockPos();
+        if (pos == null && minecraft.player != null) {
+            // 方块实体还没同步到客户端时，用玩家所在位置取生物群系颜色——开着这台机器的人
+            // 就站在它旁边，群系基本一致。
+            pos = minecraft.player.blockPosition();
+        }
+        if (tintGetter != null && pos != null) {
+            return tintSource.colorInWorld(legacyState, tintGetter, pos);
+        }
+        return tintSource.color(legacyState);
     }
 
     @Override
