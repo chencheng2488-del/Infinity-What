@@ -218,7 +218,9 @@ public class InfItemGeneratorScreen extends AbstractContainerScreen<InfItemGener
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x();
         double mouseY = event.y();
-        int button = event.button();
+        // 1.21.9+ 的 MouseButtonEvent 用 1/3 表示左/右键；容器输入需要 0/1，
+        // 映射与 AbstractContainerScreen.getContainerClickButton 一致。
+        int button = switch (event.button()) { case 1 -> 0; case 3 -> 1; default -> event.button(); };
         int x = (int) mouseX - this.leftPos;
         int y = (int) mouseY - this.topPos;
         if (button == 0) {
