@@ -14,9 +14,12 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceLocation;
@@ -150,16 +153,20 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         }
 
         TextureAtlasSprite sprite = Minecraft.getInstance()
-                .getAtlasManager().getAtlasOrThrow(TextureAtlas.LOCATION_BLOCKS)
+                .getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS)
                 .getSprite(stillTexture);
         int tint = extensions.getTintColor(stack);
-        float alpha = ((tint >> 24) & 0xFF) / 255.0F;
-        if (alpha <= 0.0F) {
-            alpha = 1.0F;
+        if (stack.is(FluidTags.WATER)) {
+            BlockPos pos = this.menu.getBlockEntity() == null ? null
+                    : this.menu.getBlockEntity().getBlockPos();
+            if (pos == null && this.minecraft.player != null) {
+                pos = this.minecraft.player.blockPosition();
+            }
+            if (this.minecraft.level != null && pos != null) {
+                tint = BiomeColors.getAverageWaterColor(this.minecraft.level, pos);
+            }
         }
-        float red = ((tint >> 16) & 0xFF) / 255.0F;
-        float green = ((tint >> 8) & 0xFF) / 255.0F;
-        float blue = (tint & 0xFF) / 255.0F;
+        int color = 0xFF000000 | (tint & 0x00FFFFFF);
 
         int x = this.leftPos + InfFluidGeneratorMenu.TANK_X;
         int yBottom = this.topPos + InfFluidGeneratorMenu.TANK_Y + InfFluidGeneratorMenu.TANK_HEIGHT;
@@ -171,7 +178,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         for (int drawn = 0; drawn < fill; drawn += tile) {
             int tileY = yBottom - drawn - tile;
             graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, tileY,
-                    InfFluidGeneratorMenu.TANK_WIDTH, tile);
+                    InfFluidGeneratorMenu.TANK_WIDTH, tile, color);
         }
         graphics.disableScissor();
     }
