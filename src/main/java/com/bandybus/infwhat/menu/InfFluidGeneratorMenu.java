@@ -2,12 +2,14 @@ package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorageUtil;
+import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -94,43 +96,33 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     }
 
     /**
-     * Fabric's fluid storage helper only works on a real hand slot, so the cursor stack is
-     * temporarily moved into the main hand, used, and swapped back. The original main hand item
-     * is restored in a finally block so a failing interaction can never delete it.
+     * Exchanges fluid between the cursor stack and the tank. The direction is decided by the
+     * contents: the tank first fills the held container, and if that moves nothing the held
+     * container is emptied into the tank. Mouse buttons do not influence the direction.
      */
     private void handleFluidContainer(Player player) {
-        ItemStack carried = this.getCarried();
-        if (carried.isEmpty()) {
+        if (this.getCarried().isEmpty()) {
+            return;
+        }
+        ContainerItemContext context = ContainerItemContext.ofPlayerCursor(player, this);
+        Storage<FluidVariant> itemStorage = context.find(FluidStorage.ITEM);
+        if (itemStorage == null) {
             return;
         }
         Storage<FluidVariant> tank = this.blockEntity.getFluidStorage();
-        ItemStack unit = carried.copyWithCount(1);
-        ItemStack originalMainHand = player.getMainHandItem();
-        ItemStack result;
-        player.setItemInHand(InteractionHand.MAIN_HAND, unit);
-        try {
-            FluidStorageUtil.interactWithFluidStorage(tank, player, InteractionHand.MAIN_HAND);
-            result = player.getMainHandItem().copy();
-        } finally {
-            player.setItemInHand(InteractionHand.MAIN_HAND, originalMainHand);
-        }
-
-        if (ItemStack.isSameItemSameTags(unit, result) && result.getCount() == unit.getCount()) {
-            return;
-        }
-
-        if (carried.getCount() <= 1) {
-            this.setCarried(result);
-        } else {
-            // Only one container is converted; the rest stay on the cursor and the produced
-            // container goes to the inventory (buckets do not stack once they hold a fluid).
-            carried.shrink(1);
-            this.setCarried(carried);
-            if (!result.isEmpty() && !player.getInventory().add(result)) {
-                player.drop(result, false);
+        long moved;
+        try (Transaction transaction = Transaction.openOuter()) {
+            moved = StorageUtil.move(tank, itemStorage, variant -> true, Long.MAX_VALUE, transaction);
+            if (moved == 0L) {
+                moved = StorageUtil.move(itemStorage, tank, variant -> true, Long.MAX_VALUE, transaction);
+            }
+            if (moved > 0L) {
+                transaction.commit();
             }
         }
-        this.broadcastChanges();
+        if (moved > 0L) {
+            this.broadcastChanges();
+        }
     }
 
     /** Inactive menu target used only by explicit bucket clicks routed from the screen. */
