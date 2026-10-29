@@ -106,7 +106,7 @@ public class InfFluidGeneratorContainer extends Container {
                 && (dragType == 0 || dragType == 1)) {
             // The client also sends this click, but only the server mutates the tank.
             if (!this.world.isRemote) {
-                handleFluidContainer(player, dragType == 1);
+                handleFluidContainer(player);
             }
             return ItemStack.EMPTY;
         }
@@ -114,18 +114,18 @@ public class InfFluidGeneratorContainer extends Container {
     }
 
     /**
-     * Direct bucket interaction with the tank: right-click empties the held container into the
-     * tank, left-click fills the held container from the tank.
+     * Direct bucket interaction with the tank: the held container is filled from the tank, or poured into it as a fallback.
      */
-    private void handleFluidContainer(EntityPlayer player, boolean emptyContainer) {
+    private void handleFluidContainer(EntityPlayer player) {
         ItemStack carried = player.inventory.getItemStack();
         if (carried.isEmpty()) {
             return;
         }
         IFluidHandler tank = this.blockEntity.getFluidHandler();
-        FluidActionResult result = emptyContainer
-                ? FluidUtil.tryEmptyContainer(carried, tank, Integer.MAX_VALUE, player, true)
-                : FluidUtil.tryFillContainer(carried, tank, Integer.MAX_VALUE, player, true);
+        FluidActionResult result = FluidUtil.tryFillContainer(carried, tank, Integer.MAX_VALUE, player, true);
+        if (!result.isSuccess()) {
+            result = FluidUtil.tryEmptyContainer(carried, tank, Integer.MAX_VALUE, player, true);
+        }
         if (!result.isSuccess()) {
             return;
         }

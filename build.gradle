@@ -11,7 +11,7 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 
-version = '2.0.0b'
+version = '2.1.0b'
 group = 'com.bandybus.infwhat'
 archivesBaseName = 'infwhat-1.12.2-forge'
 
