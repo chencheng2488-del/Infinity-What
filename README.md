@@ -1,4 +1,4 @@
-﻿# Infinity What
+# Infinity What
 
 简体中文 | [English](#english)
 
@@ -27,6 +27,13 @@
 | 1.7.10 | Forge | 10.13.4.1614 |
 | 1.8.9 | Forge | 11.15.1.2318 |
 | 1.12.2 | Forge | 14.23.5.2860 |
+| 1.16.5 | Forge | 36.2.42 |
+| 1.18.2 | Fabric | 0.77.0+1.18.2 |
+| 1.18.2 | Forge | 40.3.12 |
+| 1.19.2 | Fabric | 0.77.0+1.19.2 |
+| 1.19.2 | Forge | 43.5.2 |
+| 1.19.4 | Fabric | 0.87.2+1.19.4 |
+| 1.19.4 | Forge | 45.4.5 |
 | 1.20.1 | Forge | 47.4.10+ |
 | 1.20.1 | Fabric | 0.92.12+1.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
@@ -46,6 +53,8 @@
 | 1.21.5 | NeoForge | 21.5.101 |
 | 1.21.8 | Fabric | 0.136.1+1.21.8 |
 | 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.9 | Fabric | 0.134.1+1.21.9 |
+| 1.21.9 | NeoForge | 21.9.16-beta |
 | 1.21.10 | Fabric | 0.138.4+1.21.10 |
 | 1.21.10 | NeoForge | 21.10.64 |
 | 1.21.11 | Fabric | 0.141.6+1.21.11 |
@@ -145,6 +154,13 @@ Every branch of this repository is a **complete, standalone project for one Mine
 | 1.7.10 | Forge | 10.13.4.1614 |
 | 1.8.9 | Forge | 11.15.1.2318 |
 | 1.12.2 | Forge | 14.23.5.2860 |
+| 1.16.5 | Forge | 36.2.42 |
+| 1.18.2 | Fabric | 0.77.0+1.18.2 |
+| 1.18.2 | Forge | 40.3.12 |
+| 1.19.2 | Fabric | 0.77.0+1.19.2 |
+| 1.19.2 | Forge | 43.5.2 |
+| 1.19.4 | Fabric | 0.87.2+1.19.4 |
+| 1.19.4 | Forge | 45.4.5 |
 | 1.20.1 | Forge | 47.4.10+ |
 | 1.20.1 | Fabric | 0.92.12+1.20.1 |
 | 1.20.1 | NeoForge | 47.1.106 |
@@ -164,6 +180,8 @@ Every branch of this repository is a **complete, standalone project for one Mine
 | 1.21.5 | NeoForge | 21.5.101 |
 | 1.21.8 | Fabric | 0.136.1+1.21.8 |
 | 1.21.8 | NeoForge | 21.8.57 |
+| 1.21.9 | Fabric | 0.134.1+1.21.9 |
+| 1.21.9 | NeoForge | 21.9.16-beta |
 | 1.21.10 | Fabric | 0.138.4+1.21.10 |
 | 1.21.10 | NeoForge | 21.10.64 |
 | 1.21.11 | Fabric | 0.141.6+1.21.11 |
