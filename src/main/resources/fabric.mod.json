@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "infwhat",
+  "version": "${version}",
+  "name": "Infinity What",
+  "description": "Infinity What: because farming is for peasants. Put one bucket of fluid in and get an endless ocean; put one item in and get an infinite pile. Fine-tune output rates and sides, then clone your machine settings with the Config Replicator. Everything is configurable - so when your friends cry \"OP!\", just smile and flip the balance switch.",
+  "authors": [
+    "BandyBus"
+  ],
+  "license": "Apache-2.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.bandybus.infwhat.InfinityWhat"
+    ],
+    "client": [
+      "com.bandybus.infwhat.client.ModClientEvents"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.18.2 <1.18.3",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
