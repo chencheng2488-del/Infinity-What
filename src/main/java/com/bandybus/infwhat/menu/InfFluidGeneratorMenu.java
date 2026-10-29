@@ -80,9 +80,8 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
 
     /**
      * Direct bucket interaction with the tank slot, mirroring AE2: while the GUI is open, a
-     * fluid container on the cursor can be exchanged with the tank. Right-click empties the
-     * held container into the tank ("put in"), left-click fills the held container from the
-     * tank ("take out"). Without an open GUI the block only exposes its fluid storage.
+     * fluid container on the cursor can be exchanged with the tank, in whichever direction is
+     * possible. Without an open GUI the block only exposes its fluid storage.
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
@@ -91,14 +90,19 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
             // so only the authoritative server side performs the transfer; the result reaches the
             // client through the normal container/block-entity sync.
             if (!player.level().isClientSide) {
-                handleFluidContainer(player, button);
+                handleFluidContainer(player);
             }
             return;
         }
         super.clicked(slotId, button, clickType, player);
     }
 
-    private void handleFluidContainer(Player player, int button) {
+    /**
+     * Exchanges fluid between the cursor stack and the tank. The direction is decided by the
+     * contents: the tank first fills the held container, and if that moves nothing the held
+     * container is emptied into the tank. Mouse buttons do not influence the direction.
+     */
+    private void handleFluidContainer(Player player) {
         ItemStack carried = this.getCarried();
         if (carried.isEmpty()) {
             return;
@@ -112,9 +116,10 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         Storage<FluidVariant> tank = this.blockEntity.getFluidHandler();
         long moved;
         try (Transaction transaction = Transaction.openOuter()) {
-            moved = button == 1
-                    ? StorageUtil.move(itemStorage, tank, variant -> true, Long.MAX_VALUE, transaction)
-                    : StorageUtil.move(tank, itemStorage, variant -> true, Long.MAX_VALUE, transaction);
+            moved = StorageUtil.move(tank, itemStorage, variant -> true, Long.MAX_VALUE, transaction);
+            if (moved == 0L) {
+                moved = StorageUtil.move(itemStorage, tank, variant -> true, Long.MAX_VALUE, transaction);
+            }
             if (moved > 0L) {
                 transaction.commit();
             }
