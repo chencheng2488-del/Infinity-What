@@ -80,9 +80,8 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
 
     /**
      * Direct bucket interaction with the tank slot, mirroring AE2: while the GUI is open, a
-     * fluid container on the cursor can be exchanged with the tank. Right-click empties the
-     * held container into the tank ("put in"), left-click fills the held container from the
-     * tank ("take out"). Without an open GUI the block only exposes its fluid capability.
+     * fluid container on the cursor can be exchanged with the tank, in whichever direction is
+     * possible. Without an open GUI the block only exposes its fluid capability.
      */
     @Override
     public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
@@ -91,14 +90,19 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
             // so only the authoritative server side performs the transfer; the result reaches the
             // client through the normal container/block-entity sync.
             if (!player.level().isClientSide()) {
-                handleFluidContainer(player, button);
+                handleFluidContainer(player);
             }
             return;
         }
         super.clicked(slotId, button, clickType, player);
     }
 
-    private void handleFluidContainer(Player player, int button) {
+    /**
+     * Exchanges fluid between the cursor stack and the tank. The direction is decided by the
+     * contents: the tank first fills the held container, and if that moves nothing the held
+     * container is emptied into the tank. Mouse buttons do not influence the direction.
+     */
+    private void handleFluidContainer(Player player) {
         if (this.getCarried().isEmpty()) {
             return;
         }
@@ -112,11 +116,14 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
             return;
         }
         ResourceHandler<FluidResource> tank = this.blockEntity.getResourceHandler();
-        // Right-click empties the held container into the tank, left-click fills it from the tank.
-        boolean fillContainer = button == 0;
-        ResourceStack<FluidResource> moved = fillContainer
-                ? ResourceHandlerUtil.moveFirst(tank, containerHandler, resource -> true, Integer.MAX_VALUE, null)
-                : ResourceHandlerUtil.moveFirst(containerHandler, tank, resource -> true, Integer.MAX_VALUE, null);
+        boolean fillContainer = true;
+        ResourceStack<FluidResource> moved = ResourceHandlerUtil.moveFirst(
+                tank, containerHandler, resource -> true, Integer.MAX_VALUE, null);
+        if (moved == null) {
+            fillContainer = false;
+            moved = ResourceHandlerUtil.moveFirst(
+                    containerHandler, tank, resource -> true, Integer.MAX_VALUE, null);
+        }
         if (moved == null) {
             return;
         }
