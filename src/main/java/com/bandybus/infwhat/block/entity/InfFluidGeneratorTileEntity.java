@@ -1,6 +1,8 @@
 package com.bandybus.infwhat.block.entity;
 
+import com.bandybus.infwhat.api.IConfigurableMachine;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
+import com.bandybus.infwhat.core.SourceOutputSettings;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
@@ -22,7 +24,8 @@ import net.minecraftforge.fluids.IFluidHandler;
  * handler reports {@link Integer#MAX_VALUE} mB while infinite. The GUI presents the conceptual
  * amount as {@code Long.MAX_VALUE B}.
  */
-public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHandler {
+public class InfFluidGeneratorTileEntity extends TileEntity
+        implements IFluidHandler, IConfigurableMachine {
 
     private static final String KEY_TANK = "Tank";
     private static final String KEY_INFINITE = "Infinite";
@@ -30,18 +33,17 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHan
     private static final String KEY_OUTPUT_SIDES = "OutputSides";
     private static final String KEY_OUTPUT_RATE_MB = "OutputRateMb";
     private static final String KEY_OUTPUT_RATE_INDEX = "OutputRateIndex";
+    /** Card profile key; the tile's own saved rate keeps the legacy {@code Mb} suffix. */
+    private static final String KEY_CARD_OUTPUT_RATE = "OutputRate";
 
     /** Highest rate the GUI accepts, expressed in millibuckets per side and tick. */
     public static final long MAX_OUTPUT_RATE_MB = (long) Integer.MAX_VALUE * 1000L;
 
-    /** Number of faces a machine can push into (DOWN, UP, NORTH, SOUTH, WEST, EAST). */
-    private static final int SIDE_COUNT = ForgeDirection.VALID_DIRECTIONS.length;
-
     private FluidStack tank;
     private boolean infinite;
-    private boolean outputEnabled;
-    private int outputSideMask = (1 << SIDE_COUNT) - 1;
-    private long outputAmountPerTickMb = 1000L;
+    /** Shared output switch, face mask and per-face rate. */
+    private final SourceOutputSettings output =
+            new SourceOutputSettings(1000L, 1L, MAX_OUTPUT_RATE_MB);
 
     public InfFluidGeneratorTileEntity() {
     }
@@ -72,55 +74,77 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHan
 
     /** Whether active output is currently switched on. */
     public boolean isOutputEnabled() {
-        return this.outputEnabled;
+        return this.output.isEnabled();
     }
 
     /** Turns active output on or off and syncs the change to clients. */
     public void setOutputEnabled(boolean enabled) {
-        if (this.outputEnabled == enabled) {
+        if (this.output.isEnabled() == enabled) {
             return;
         }
-        this.outputEnabled = enabled;
+        this.output.setEnabled(enabled);
         markUpdated();
     }
 
     /** Whether active output pushes toward the given face. */
     public boolean isOutputSideEnabled(ForgeDirection direction) {
-        return (this.outputSideMask & (1 << direction.ordinal())) != 0;
+        return this.output.isSideEnabled(direction);
     }
 
     /** Flips active output for one face. */
     public void toggleOutputSide(ForgeDirection direction) {
-        this.outputSideMask ^= 1 << direction.ordinal();
+        this.output.toggleSide(direction);
         markUpdated();
     }
 
     /** Configured push amount per enabled face and tick, in millibuckets. */
     public long getOutputAmountPerTick() {
-        return this.outputAmountPerTickMb;
+        return this.output.getRate();
     }
 
     /** Clamps and stores a new push amount per enabled face and tick. */
     public void setOutputAmountPerTick(long millibuckets) {
-        long clamped = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB, millibuckets));
-        if (this.outputAmountPerTickMb == clamped) {
+        if (this.output.getRate() == millibuckets) {
             return;
         }
-        this.outputAmountPerTickMb = clamped;
+        this.output.setRate(millibuckets);
         markUpdated();
     }
 
     /** Raw six-bit mask of enabled output faces. */
     public int getOutputSideMask() {
-        return this.outputSideMask;
+        return this.output.getSideMask();
     }
 
     /** Applies a configuration copied from another fluid generator. */
     public void applyOutputConfiguration(boolean enabled, int sideMask, long rateMb) {
-        this.outputEnabled = enabled;
-        this.outputSideMask = sideMask & ((1 << SIDE_COUNT) - 1);
-        this.outputAmountPerTickMb = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB, rateMb));
+        this.output.apply(enabled, sideMask, rateMb);
         markUpdated();
+    }
+
+    // ------------------------------------------------------------------
+    // Configuration card snapshot
+    // ------------------------------------------------------------------
+
+    @Override
+    public String getConfigurationType() {
+        return "fluid";
+    }
+
+    @Override
+    public NBTTagCompound writeConfiguration() {
+        NBTTagCompound configuration = new NBTTagCompound();
+        configuration.setBoolean(KEY_OUTPUT_ENABLED, isOutputEnabled());
+        configuration.setInteger(KEY_OUTPUT_SIDES, getOutputSideMask());
+        configuration.setLong(KEY_CARD_OUTPUT_RATE, getOutputAmountPerTick());
+        return configuration;
+    }
+
+    @Override
+    public void applyConfiguration(NBTTagCompound configuration) {
+        applyOutputConfiguration(configuration.getBoolean(KEY_OUTPUT_ENABLED),
+                configuration.getInteger(KEY_OUTPUT_SIDES),
+                configuration.getLong(KEY_CARD_OUTPUT_RATE));
     }
 
     /** Empties the tank and drops the infinite flag. */
@@ -161,9 +185,9 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHan
             compound.setTag(KEY_TANK, tankTag);
         }
         compound.setBoolean(KEY_INFINITE, this.infinite);
-        compound.setBoolean(KEY_OUTPUT_ENABLED, this.outputEnabled);
-        compound.setInteger(KEY_OUTPUT_SIDES, this.outputSideMask);
-        compound.setLong(KEY_OUTPUT_RATE_MB, this.outputAmountPerTickMb);
+        compound.setBoolean(KEY_OUTPUT_ENABLED, this.output.isEnabled());
+        compound.setInteger(KEY_OUTPUT_SIDES, this.output.getSideMask());
+        compound.setLong(KEY_OUTPUT_RATE_MB, this.output.getRate());
     }
 
     @Override
@@ -178,21 +202,19 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHan
             }
         }
         this.infinite = compound.getBoolean(KEY_INFINITE) && this.tank != null;
-        this.outputEnabled = compound.getBoolean(KEY_OUTPUT_ENABLED);
-        this.outputSideMask = compound.hasKey(KEY_OUTPUT_SIDES, 3)
-                ? compound.getInteger(KEY_OUTPUT_SIDES)
-                : (1 << SIDE_COUNT) - 1;
+        this.output.setEnabled(compound.getBoolean(KEY_OUTPUT_ENABLED));
+        this.output.setSideMask(compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                ? compound.getInteger(KEY_OUTPUT_SIDES) : SourceOutputSettings.ALL_SIDES);
         if (compound.hasKey(KEY_OUTPUT_RATE_MB, 4)) {
-            this.outputAmountPerTickMb = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB,
-                    compound.getLong(KEY_OUTPUT_RATE_MB)));
+            this.output.setRate(compound.getLong(KEY_OUTPUT_RATE_MB));
         } else if (compound.hasKey(KEY_OUTPUT_RATE_INDEX, 3)) {
             long[] legacyRates = {1L, 10L, 100L, 1000L, 10000L, 100000L, 1000000L,
                     10000000L, 100000000L, 1000000000L};
             int index = Math.max(0, Math.min(legacyRates.length - 1,
                     compound.getInteger(KEY_OUTPUT_RATE_INDEX)));
-            this.outputAmountPerTickMb = legacyRates[index];
+            this.output.setRate(legacyRates[index]);
         } else {
-            this.outputAmountPerTickMb = 1000L;
+            this.output.setRate(1000L);
         }
     }
 
@@ -246,7 +268,7 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements IFluidHan
         if (this.worldObj == null || this.worldObj.isRemote) {
             return;
         }
-        if (this.outputEnabled && this.tank != null) {
+        if (this.output.isEnabled() && this.tank != null) {
             this.pushToNeighbors();
         }
     }

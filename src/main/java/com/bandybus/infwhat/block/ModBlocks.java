@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.block;
 
+import com.bandybus.infwhat.integration.thaumcraft4.ThaumcraftIntegration;
 import cpw.mods.fml.common.registry.GameRegistry;
 import net.minecraft.block.Block;
 
@@ -17,6 +18,18 @@ public final class ModBlocks {
     public static final InfItemGeneratorBlock INF_ITEM_GENERATOR =
             new InfItemGeneratorBlock("inf_item_generator");
 
+    /** Thaumcraft altar controller; only registered when Thaumcraft 4 is present. */
+    public static final OrdoUsurpatoryMatrixBlock ORDO_USURPATORY_MATRIX =
+            new OrdoUsurpatoryMatrixBlock("ordo_usurpatory_matrix");
+
+    /** Arcane Aspect Replicator; only registered when Thaumcraft 4 is present. */
+    public static final ArcaneAspectReplicatorBlock ARCANE_ASPECT_REPLICATOR =
+            new ArcaneAspectReplicatorBlock("arcane_aspect_replicator");
+
+    /** Arcane Essentia Emanator; only registered when Thaumcraft 4 is present. */
+    public static final ArcaneEssentiaEmanatorBlock ARCANE_ESSENTIA_EMANATOR =
+            new ArcaneEssentiaEmanatorBlock("arcane_essentia_emanator");
+
     private ModBlocks() {
     }
 
@@ -24,6 +37,13 @@ public final class ModBlocks {
     public static void register() {
         registerBlock(INF_FLUID_GENERATOR, "inf_fluid_generator");
         registerBlock(INF_ITEM_GENERATOR, "inf_item_generator");
+        if (ThaumcraftIntegration.isActive()) {
+            // Dedicated item class: it adds the machine tooltip and lore lines.
+            GameRegistry.registerBlock(ORDO_USURPATORY_MATRIX,
+                    ItemBlockOrdoUsurpatoryMatrix.class, "ordo_usurpatory_matrix");
+            registerBlock(ARCANE_ASPECT_REPLICATOR, "arcane_aspect_replicator");
+            registerBlock(ARCANE_ESSENTIA_EMANATOR, "arcane_essentia_emanator");
+        }
     }
 
     /** Registers one block with a dedicated block item limited to a single item per stack. */

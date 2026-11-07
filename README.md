@@ -18,6 +18,17 @@
 - **物品与流体 ID 过滤** —— 通过 `config/infwhat.toml` 按类别独立设置黑名单或白名单，精确控制每台机器接受什么。管道、漏斗、存储总线以及 GUI 内手动放入的物品/流体都受此限制。
 - **创造模式标签页** —— 所有物品集中展示在独立的 `Infinity What` 标签页中。
 
+### Thaumcraft 联动（1.7.10 / 1.12.2）
+
+1.7.10（Thaumcraft 4）与 1.12.2（Thaumcraft 6）额外提供可选的 Thaumcraft 联动；未安装 Thaumcraft 时不会注册以下内容：
+
+- **序理攫扼台** —— 绑定附近的注魔祭坛，调整注魔速度与稳定度。
+- **奥术相复仪** —— 锁定要素后无限供给对应要素或灵气。
+- **奥术源质溢散仪** —— 无限源质源，可为周围源质罐补充，也可被管道抽取。
+- **奥术录序晶片** —— 复制和粘贴奥术机器设置。
+
+新增内容都带有对应的奥术工作台或注魔配方与 Thaumonomicon 研究。1.7.10 还支持通过 Thaumic Energistics 的源质存储总线从溢散仪抽取源质。
+
 ### 支持的版本
 
 本仓库的每个分支都是一个**对应单个 Minecraft 版本的完整独立工程**。选择与你的游戏版本匹配的分支进行构建，或直接从 Releases 页面下载 jar。
@@ -143,6 +154,17 @@ Infinity What adds two generator machines plus a config-copying tool. Feed a gen
 - **Config Replicator** — copy a machine's full configuration (output switches, sides, rate, infinite mode) and paste it onto another machine of the same type.
 - **Item & fluid ID filters** — blacklist or whitelist exactly what each machine accepts, per category, through `config/infwhat.toml`. Filters apply to pipes, hoppers, storage buses and manual GUI insertion alike.
 - **Creative tab** — all items collected in a dedicated `Infinity What` tab.
+
+### Thaumcraft linkage (1.7.10 / 1.12.2)
+
+The 1.7.10 (Thaumcraft 4) and 1.12.2 (Thaumcraft 6) branches add an optional Thaumcraft linkage; none of it is registered without Thaumcraft:
+
+- **Ordo Usurpatory Matrix** — binds to a nearby infusion altar and controls infusion speed and stability.
+- **Arcane Aspect Replicator** — locks an aspect and supplies it indefinitely.
+- **Arcane Essentia Emanator** — an infinite essentia source that also refills nearby jars and can be drawn from by tubes.
+- **Arcane Ord-Record Shard** — copies and pastes arcane machine settings.
+
+All new content ships with its arcane workbench or infusion recipe and Thaumonomicon research. The 1.7.10 branch also supports essentia extraction from the emanator through Thaumic Energistics.
 
 ### Supported versions
 

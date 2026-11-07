@@ -23,11 +23,20 @@ public final class ModNetworking {
                 SetOutputRateMessage.class, 0, Side.SERVER);
         INSTANCE.registerMessage(OutputRateResultMessage.Handler.class,
                 OutputRateResultMessage.class, 1, Side.CLIENT);
+        INSTANCE.registerMessage(SetOrdoSettingsMessage.Handler.class,
+                SetOrdoSettingsMessage.class, 2, Side.SERVER);
     }
 
     /** Sends a new output rate request from the client to the server. */
     public static void sendOutputRate(int windowId, boolean fluidGenerator, long amount) {
         INSTANCE.sendToServer(new SetOutputRateMessage(windowId, fluidGenerator, amount));
+    }
+
+    /** Sends an Ordo Usurpatory Matrix settings edit from the client to the server. */
+    public static void sendOrdoSettings(int x, int y, int z, float speedMultiplier,
+                                        int stabilityMode, float stabilityValue) {
+        INSTANCE.sendToServer(new SetOrdoSettingsMessage(x, y, z, speedMultiplier,
+                stabilityMode, stabilityValue));
     }
 
     /** Shared channel instance used by the message handlers to send their reply. */

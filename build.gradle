@@ -10,7 +10,7 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = '2.1.0b'
+version = '2.1.1'
 group = 'com.bandybus.infwhat'
 archivesBaseName = 'infwhat-1.7.10-forge'
 
@@ -23,6 +23,9 @@ minecraft {
 }
 
 dependencies {
+    // Compile-only: the Thaumcraft integration is loaded only when Thaumcraft is present, and the
+    // library is never packaged into the mod. The jar is kept out of version control in libs/.
+    compile files('libs/Thaumcraft-1.7.10-4.2.3.5.jar')
 }
 
 /*
@@ -52,4 +55,8 @@ jar {
                 "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
 }

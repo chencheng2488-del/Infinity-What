@@ -1,6 +1,8 @@
 package com.bandybus.infwhat.block.entity;
 
+import com.bandybus.infwhat.api.IConfigurableMachine;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
+import com.bandybus.infwhat.core.SourceOutputSettings;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
@@ -23,7 +25,7 @@ import net.minecraftforge.common.util.ForgeDirection;
  *
  * <p>1.7.10 represents empty item stacks with {@code null}, so every read path is null-checked.
  */
-public class InfItemGeneratorTileEntity extends TileEntity implements IInventory {
+public class InfItemGeneratorTileEntity extends TileEntity implements IInventory, IConfigurableMachine {
 
     private static final String KEY_ITEM = "Item";
     private static final String KEY_INFINITE_MODE = "InfiniteMode";
@@ -34,16 +36,13 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
     /** Items pushed per enabled side and tick when nothing else is configured. */
     public static final int DEFAULT_OUTPUT_RATE = 8;
 
-    /** Number of faces a machine can push into (DOWN, UP, NORTH, SOUTH, WEST, EAST). */
-    private static final int SIDE_COUNT = ForgeDirection.VALID_DIRECTIONS.length;
-
     /** Single stored item stack; the inventory limit keeps its size at one. */
     private ItemStack storedItem;
 
     private boolean infiniteModeEnabled;
-    private boolean outputEnabled;
-    private int outputSideMask = (1 << SIDE_COUNT) - 1;
-    private int outputItemsPerTick = DEFAULT_OUTPUT_RATE;
+    /** Shared output switch, face mask and per-face rate. */
+    private final SourceOutputSettings output =
+            new SourceOutputSettings(DEFAULT_OUTPUT_RATE, 1L, Integer.MAX_VALUE);
 
     public InfItemGeneratorTileEntity() {
     }
@@ -78,57 +77,81 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
 
     /** Whether active output is currently switched on. */
     public boolean isOutputEnabled() {
-        return this.outputEnabled;
+        return this.output.isEnabled();
     }
 
     /** Turns active output on or off and syncs the change to clients. */
     public void setOutputEnabled(boolean enabled) {
-        if (this.outputEnabled == enabled) {
+        if (this.output.isEnabled() == enabled) {
             return;
         }
-        this.outputEnabled = enabled;
+        this.output.setEnabled(enabled);
         markUpdated();
     }
 
     /** Whether active output pushes toward the given face. */
     public boolean isOutputSideEnabled(ForgeDirection direction) {
-        return (this.outputSideMask & (1 << direction.ordinal())) != 0;
+        return this.output.isSideEnabled(direction);
     }
 
     /** Flips active output for one face. */
     public void toggleOutputSide(ForgeDirection direction) {
-        this.outputSideMask ^= 1 << direction.ordinal();
+        this.output.toggleSide(direction);
         markUpdated();
     }
 
     /** Configured push amount per enabled face and tick. */
     public int getOutputItemsPerTick() {
-        return this.outputItemsPerTick;
+        return (int) this.output.getRate();
     }
 
     /** Clamps and stores a new push amount per enabled face and tick. */
     public void setOutputItemsPerTick(int amount) {
-        int clamped = Math.max(1, amount);
-        if (this.outputItemsPerTick == clamped) {
+        if (this.output.getRate() == amount) {
             return;
         }
-        this.outputItemsPerTick = clamped;
+        this.output.setRate(amount);
         markUpdated();
     }
 
     /** Raw six-bit mask of enabled output faces. */
     public int getOutputSideMask() {
-        return this.outputSideMask;
+        return this.output.getSideMask();
     }
 
     /** Applies a configuration copied from another item generator. */
     public void applyOutputConfiguration(boolean enabled, int sideMask, int amountPerTick,
                                          boolean infiniteMode) {
-        this.outputEnabled = enabled;
-        this.outputSideMask = sideMask & ((1 << SIDE_COUNT) - 1);
-        this.outputItemsPerTick = Math.max(1, amountPerTick);
+        this.output.apply(enabled, sideMask, amountPerTick);
         this.infiniteModeEnabled = infiniteMode;
         markUpdated();
+    }
+
+    // ------------------------------------------------------------------
+    // Configuration card snapshot
+    // ------------------------------------------------------------------
+
+    @Override
+    public String getConfigurationType() {
+        return "item";
+    }
+
+    @Override
+    public NBTTagCompound writeConfiguration() {
+        NBTTagCompound configuration = new NBTTagCompound();
+        configuration.setBoolean(KEY_OUTPUT_ENABLED, isOutputEnabled());
+        configuration.setInteger(KEY_OUTPUT_SIDES, getOutputSideMask());
+        configuration.setInteger(KEY_OUTPUT_RATE, getOutputItemsPerTick());
+        configuration.setBoolean(KEY_INFINITE_MODE, isInfiniteModeEnabled());
+        return configuration;
+    }
+
+    @Override
+    public void applyConfiguration(NBTTagCompound configuration) {
+        applyOutputConfiguration(configuration.getBoolean(KEY_OUTPUT_ENABLED),
+                configuration.getInteger(KEY_OUTPUT_SIDES),
+                configuration.getInteger(KEY_OUTPUT_RATE),
+                configuration.getBoolean(KEY_INFINITE_MODE));
     }
 
     /** Infinite mode combined with a stored item and the configuration master switch. */
@@ -165,7 +188,7 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
         if (this.worldObj == null || this.worldObj.isRemote) {
             return;
         }
-        if (effectivelyInfinite() && this.outputEnabled) {
+        if (effectivelyInfinite() && this.output.isEnabled()) {
             this.pushToNeighbors();
         }
     }
@@ -176,7 +199,7 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
         if (stored == null || stored.stackSize <= 0 || this.worldObj == null) {
             return;
         }
-        int count = this.outputItemsPerTick;
+        int count = (int) this.output.getRate();
         for (ForgeDirection direction : ForgeDirection.VALID_DIRECTIONS) {
             if (!isOutputSideEnabled(direction)) {
                 continue;
@@ -338,9 +361,9 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
             compound.setTag(KEY_ITEM, this.storedItem.writeToNBT(new NBTTagCompound()));
         }
         compound.setBoolean(KEY_INFINITE_MODE, this.infiniteModeEnabled);
-        compound.setBoolean(KEY_OUTPUT_ENABLED, this.outputEnabled);
-        compound.setInteger(KEY_OUTPUT_SIDES, this.outputSideMask);
-        compound.setInteger(KEY_OUTPUT_RATE, this.outputItemsPerTick);
+        compound.setBoolean(KEY_OUTPUT_ENABLED, this.output.isEnabled());
+        compound.setInteger(KEY_OUTPUT_SIDES, this.output.getSideMask());
+        compound.setInteger(KEY_OUTPUT_RATE, (int) this.output.getRate());
     }
 
     @Override
@@ -355,13 +378,11 @@ public class InfItemGeneratorTileEntity extends TileEntity implements IInventory
             }
         }
         this.infiniteModeEnabled = compound.getBoolean(KEY_INFINITE_MODE);
-        this.outputEnabled = compound.getBoolean(KEY_OUTPUT_ENABLED);
-        this.outputSideMask = compound.hasKey(KEY_OUTPUT_SIDES, 3)
-                ? compound.getInteger(KEY_OUTPUT_SIDES)
-                : (1 << SIDE_COUNT) - 1;
-        this.outputItemsPerTick = compound.hasKey(KEY_OUTPUT_RATE, 3)
-                ? Math.max(1, compound.getInteger(KEY_OUTPUT_RATE))
-                : DEFAULT_OUTPUT_RATE;
+        this.output.setEnabled(compound.getBoolean(KEY_OUTPUT_ENABLED));
+        this.output.setSideMask(compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                ? compound.getInteger(KEY_OUTPUT_SIDES) : SourceOutputSettings.ALL_SIDES);
+        this.output.setRate(compound.hasKey(KEY_OUTPUT_RATE, 3)
+                ? compound.getInteger(KEY_OUTPUT_RATE) : DEFAULT_OUTPUT_RATE);
     }
 
     // ------------------------------------------------------------------

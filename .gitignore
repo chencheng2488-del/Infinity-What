@@ -5,6 +5,8 @@ bin
 .metadata
 .classpath
 .project
+.vscode
+.factorypath
 
 # idea
 out
@@ -20,3 +22,6 @@ build
 # other
 eclipse
 run
+
+# optional Thaumcraft compile-only library
+libs

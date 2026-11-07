@@ -9,12 +9,17 @@ public final class ModItems {
     public static final InfiniteSourceConfigureReplicatorItem INFINITE_SOURCE_CONFIG_REPLICATOR =
             new InfiniteSourceConfigureReplicatorItem();
 
+    /** Arcane machine configuration shard instance. */
+    public static final ArcaneOrdRecordShardItem ARCANE_ORD_RECORD_SHARD =
+            new ArcaneOrdRecordShardItem();
+
     private ModItems() {
     }
 
-    /** Registers the replicator item; the game registry prefixes the mod id. */
+    /** Registers the item; the game registry prefixes the mod id. */
     public static void register() {
         GameRegistry.registerItem(INFINITE_SOURCE_CONFIG_REPLICATOR,
                 "infinite_source_config_replicator");
+        GameRegistry.registerItem(ARCANE_ORD_RECORD_SHARD, "arcane_ord_record_shard");
     }
 }
