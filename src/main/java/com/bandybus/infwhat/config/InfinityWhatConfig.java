@@ -36,6 +36,10 @@ public final class InfinityWhatConfig {
     private static FilterMode fluidFilterMode = FilterMode.BLACKLIST;
     private static List<String> itemFilterList = new ArrayList<String>();
     private static List<String> fluidFilterList = new ArrayList<String>();
+    private static boolean ordoMatrixEnabled = true;
+    private static int ordoMatrixRange = 8;
+    private static int ordoMatrixMaxSpeed = 10;
+    private static int ordoMatrixMaxStability = 100;
 
     private InfinityWhatConfig() {
     }
@@ -63,6 +67,18 @@ public final class InfinityWhatConfig {
         fluidFilterMode = readFilterMode("fluid_filter", "mode");
         fluidFilterList = sanitize(configuration.getStringList("list", "fluid_filter",
                 new String[0], "Fluid ids (e.g. \"minecraft:water\") the mode above applies to."));
+
+        configuration.setCategoryComment("thaumcraft",
+                "Optional Thaumcraft infusion-altar integration.");
+        ordoMatrixEnabled = configuration.getBoolean("enableOrdoUsurpatoryMatrix", "thaumcraft",
+                true, "Master switch for the Ordo Usurpatory Matrix. The block is only registered "
+                        + "when Thaumcraft is loaded and this is true.");
+        ordoMatrixRange = configuration.getInt("ordoMatrixRange", "thaumcraft", 8, 2, 32,
+                "Maximum block distance between the matrix and its bound altar.");
+        ordoMatrixMaxSpeed = configuration.getInt("ordoMatrixMaxSpeed", "thaumcraft", 10, 1, 100,
+                "Maximum infusion speed multiplier.");
+        ordoMatrixMaxStability = configuration.getInt("ordoMatrixMaxStability", "thaumcraft",
+                100, 1, 1000, "Maximum custom stability value accepted by the GUI.");
 
         if (configuration.hasChanged()) {
             configuration.save();
@@ -119,5 +135,21 @@ public final class InfinityWhatConfig {
     /** Exposes the immutable snapshot for debug logging. */
     public static List<String> getItemFilterList() {
         return Arrays.asList(itemFilterList.toArray(new String[itemFilterList.size()]));
+    }
+
+    public static boolean ordoMatrixEnabled() {
+        return ordoMatrixEnabled;
+    }
+
+    public static int ordoMatrixRange() {
+        return ordoMatrixRange;
+    }
+
+    public static int ordoMatrixMaxSpeed() {
+        return ordoMatrixMaxSpeed;
+    }
+
+    public static int ordoMatrixMaxStability() {
+        return ordoMatrixMaxStability;
     }
 }

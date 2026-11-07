@@ -1,6 +1,8 @@
 package com.bandybus.infwhat.block.entity;
 
+import com.bandybus.infwhat.api.IConfigurableMachine;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
+import com.bandybus.infwhat.core.SourceOutputSettings;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
@@ -27,7 +29,8 @@ import javax.annotation.Nullable;
  * capability reports {@link Integer#MAX_VALUE} mB while infinite. The GUI presents the
  * conceptual amount as {@code Long.MAX_VALUE B} (buckets, 1 B = 1000 mB).
  */
-public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable {
+public class InfFluidGeneratorTileEntity extends TileEntity
+        implements ITickable, IConfigurableMachine {
 
     private static final String KEY_TANK = "Tank";
     private static final String KEY_INFINITE = "Infinite";
@@ -35,14 +38,16 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable
     private static final String KEY_OUTPUT_SIDES = "OutputSides";
     private static final String KEY_OUTPUT_RATE_MB = "OutputRateMb";
     private static final String KEY_OUTPUT_RATE_INDEX = "OutputRateIndex";
+    /** Card profile key; the tile's own saved rate keeps the legacy {@code Mb} suffix. */
+    private static final String KEY_CARD_OUTPUT_RATE = "OutputRate";
     public static final long MAX_OUTPUT_RATE_MB = (long) Integer.MAX_VALUE * 1000L;
 
     /** Stored fluid; {@code null} means empty. While infinite the amount is only a placeholder. */
     private FluidStack tank;
     private boolean infinite;
-    private boolean outputEnabled;
-    private int outputSideMask = (1 << EnumFacing.values().length) - 1;
-    private long outputAmountPerTickMb = 1000L;
+    /** Shared output switch, face mask and per-face rate. */
+    private final SourceOutputSettings output =
+            new SourceOutputSettings(1000L, 1L, MAX_OUTPUT_RATE_MB);
 
     private final IFluidHandler fluidHandler = new InfiniteFluidTank();
 
@@ -90,48 +95,70 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable
     }
 
     public boolean isOutputEnabled() {
-        return this.outputEnabled;
+        return this.output.isEnabled();
     }
 
     public void setOutputEnabled(boolean enabled) {
-        if (this.outputEnabled == enabled) {
+        if (this.output.isEnabled() == enabled) {
             return;
         }
-        this.outputEnabled = enabled;
+        this.output.setEnabled(enabled);
         markUpdated();
     }
 
     public boolean isOutputSideEnabled(EnumFacing direction) {
-        return (this.outputSideMask & (1 << direction.ordinal())) != 0;
+        return this.output.isSideEnabled(direction);
     }
 
     public void toggleOutputSide(EnumFacing direction) {
-        this.outputSideMask ^= 1 << direction.ordinal();
+        this.output.toggleSide(direction);
         markUpdated();
     }
 
     public long getOutputAmountPerTick() {
-        return this.outputAmountPerTickMb;
+        return this.output.getRate();
     }
 
     public void setOutputAmountPerTick(long millibuckets) {
-        long clamped = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB, millibuckets));
-        if (this.outputAmountPerTickMb == clamped) {
+        if (this.output.getRate() == millibuckets) {
             return;
         }
-        this.outputAmountPerTickMb = clamped;
+        this.output.setRate(millibuckets);
         markUpdated();
     }
 
     public int getOutputSideMask() {
-        return this.outputSideMask;
+        return this.output.getSideMask();
     }
 
     public void applyOutputConfiguration(boolean enabled, int sideMask, long rateMb) {
-        this.outputEnabled = enabled;
-        this.outputSideMask = sideMask & ((1 << EnumFacing.values().length) - 1);
-        this.outputAmountPerTickMb = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB, rateMb));
+        this.output.apply(enabled, sideMask, rateMb);
         markUpdated();
+    }
+
+    // ------------------------------------------------------------------
+    // Configuration card snapshot
+    // ------------------------------------------------------------------
+
+    @Override
+    public String getConfigurationType() {
+        return "fluid";
+    }
+
+    @Override
+    public NBTTagCompound writeConfiguration() {
+        NBTTagCompound configuration = new NBTTagCompound();
+        configuration.setBoolean(KEY_OUTPUT_ENABLED, isOutputEnabled());
+        configuration.setInteger(KEY_OUTPUT_SIDES, getOutputSideMask());
+        configuration.setLong(KEY_CARD_OUTPUT_RATE, getOutputAmountPerTick());
+        return configuration;
+    }
+
+    @Override
+    public void applyConfiguration(NBTTagCompound configuration) {
+        applyOutputConfiguration(configuration.getBoolean(KEY_OUTPUT_ENABLED),
+                configuration.getInteger(KEY_OUTPUT_SIDES),
+                configuration.getLong(KEY_CARD_OUTPUT_RATE));
     }
 
     public void clearFluid() {
@@ -174,9 +201,9 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable
             compound.setTag(KEY_TANK, tankTag);
         }
         compound.setBoolean(KEY_INFINITE, this.infinite);
-        compound.setBoolean(KEY_OUTPUT_ENABLED, this.outputEnabled);
-        compound.setInteger(KEY_OUTPUT_SIDES, this.outputSideMask);
-        compound.setLong(KEY_OUTPUT_RATE_MB, this.outputAmountPerTickMb);
+        compound.setBoolean(KEY_OUTPUT_ENABLED, this.output.isEnabled());
+        compound.setInteger(KEY_OUTPUT_SIDES, this.output.getSideMask());
+        compound.setLong(KEY_OUTPUT_RATE_MB, this.output.getRate());
         return compound;
     }
 
@@ -192,22 +219,20 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable
             }
         }
         this.infinite = compound.getBoolean(KEY_INFINITE) && this.tank != null;
-        this.outputEnabled = compound.getBoolean(KEY_OUTPUT_ENABLED);
-        this.outputSideMask = compound.hasKey(KEY_OUTPUT_SIDES, 3)
-                ? compound.getInteger(KEY_OUTPUT_SIDES)
-                : (1 << EnumFacing.values().length) - 1;
+        this.output.setEnabled(compound.getBoolean(KEY_OUTPUT_ENABLED));
+        this.output.setSideMask(compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                ? compound.getInteger(KEY_OUTPUT_SIDES) : SourceOutputSettings.ALL_SIDES);
         if (compound.hasKey(KEY_OUTPUT_RATE_MB, 4)) {
-            this.outputAmountPerTickMb = Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB,
-                    compound.getLong(KEY_OUTPUT_RATE_MB)));
+            this.output.setRate(compound.getLong(KEY_OUTPUT_RATE_MB));
         } else if (compound.hasKey(KEY_OUTPUT_RATE_INDEX, 3)) {
             // Migrate worlds saved by the previous preset-based release.
             long[] legacyRates = {1L, 10L, 100L, 1000L, 10000L, 100000L, 1000000L,
                     10000000L, 100000000L, 1000000000L};
             int index = Math.max(0, Math.min(legacyRates.length - 1,
                     compound.getInteger(KEY_OUTPUT_RATE_INDEX)));
-            this.outputAmountPerTickMb = legacyRates[index];
+            this.output.setRate(legacyRates[index]);
         } else {
-            this.outputAmountPerTickMb = 1000L;
+            this.output.setRate(1000L);
         }
     }
 
@@ -267,7 +292,7 @@ public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable
         if (this.world == null || this.world.isRemote) {
             return;
         }
-        if (this.outputEnabled && this.tank != null) {
+        if (this.output.isEnabled() && this.tank != null) {
             this.pushToNeighbors();
         }
     }

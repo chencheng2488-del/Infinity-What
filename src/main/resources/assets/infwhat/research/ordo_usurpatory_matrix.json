@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "key": "ORDO_MATRIX",
+      "name": "research.infwhat.ORDO_MATRIX.title",
+      "icons": ["infwhat:ordo_usurpatory_matrix"],
+      "category": "ARTIFICE",
+      "parents": ["INFUSION", "BASEARTIFICE", "BASEINFUSION"],
+      "location": [1, -1],
+      "stages": [
+        {
+          "text": "research.infwhat.ORDO_MATRIX.stage.1",
+          "recipes": ["infwhat:ordo_usurpatory_matrix"]
+        }
+      ]
+    }
+  ]
+}

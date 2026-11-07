@@ -22,10 +22,19 @@ public final class ModNetworking {
                 SetOutputRateMessage.class, 0, Side.SERVER);
         INSTANCE.registerMessage(OutputRateResultMessage.Handler.class,
                 OutputRateResultMessage.class, 1, Side.CLIENT);
+        INSTANCE.registerMessage(SetOrdoSettingsMessage.Handler.class,
+                SetOrdoSettingsMessage.class, 2, Side.SERVER);
     }
 
     public static void sendOutputRate(int windowId, boolean fluidGenerator, long amount) {
         INSTANCE.sendToServer(new SetOutputRateMessage(windowId, fluidGenerator, amount));
+    }
+
+    public static void sendOrdoSettings(net.minecraft.util.math.BlockPos pos,
+                                        float speedMultiplier, int stabilityMode,
+                                        float stabilityValue) {
+        INSTANCE.sendToServer(new SetOrdoSettingsMessage(pos, speedMultiplier, stabilityMode,
+                stabilityValue));
     }
 
     static SimpleNetworkWrapper channel() {

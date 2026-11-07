@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "key": "ARCANE_EMANATOR",
+      "name": "research.infwhat.ARCANE_EMANATOR.title",
+      "icons": ["infwhat:arcane_essentia_emanator"],
+      "category": "ALCHEMY",
+      "parents": ["ESSENTIASMELTER"],
+      "location": [6, 0],
+      "stages": [
+        {
+          "text": "research.infwhat.ARCANE_EMANATOR.stage.1"
+        },
+        {
+          "text": "research.infwhat.ARCANE_EMANATOR.stage.2",
+          "recipes": ["infwhat:arcane_essentia_emanator"]
+        }
+      ]
+    }
+  ]
+}

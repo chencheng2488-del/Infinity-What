@@ -1,5 +1,6 @@
 package com.bandybus.infwhat;
 
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
@@ -10,5 +11,9 @@ public class CommonProxy {
     }
 
     public void init(FMLInitializationEvent event) {
+    }
+
+    /** Client-only screen hook; the server proxy intentionally does nothing. */
+    public void openOrdoUsurpatoryMatrixGui(BlockPos pos) {
     }
 }

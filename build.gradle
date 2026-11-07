@@ -11,7 +11,7 @@ buildscript {
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 
-version = '2.1.0b'
+version = '2.1.1'
 group = 'com.bandybus.infwhat'
 archivesBaseName = 'infwhat-1.12.2-forge'
 
@@ -36,6 +36,9 @@ minecraft {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860'
+    // Compile-only: the Thaumcraft integration is loaded only when Thaumcraft is present, and the
+    // library is never packaged into the mod. The jar is kept out of version control in libs/.
+    compileOnly files('libs/Thaumcraft-1.12.2-6.1.BETA26.jar')
 }
 
 jar {
@@ -53,3 +56,7 @@ jar {
 }
 
 jar.finalizedBy('reobfJar')
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}

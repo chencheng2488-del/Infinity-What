@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "key": "ARCANE_SHARD",
+      "name": "research.infwhat.ARCANE_SHARD.title",
+      "icons": ["infwhat:arcane_ord_record_shard"],
+      "category": "ALCHEMY",
+      "parents": ["ARCANE_REPLICATOR", "ARCANE_EMANATOR"],
+      "location": [7, 0],
+      "stages": [
+        {
+          "text": "research.infwhat.ARCANE_SHARD.stage.1"
+        },
+        {
+          "text": "research.infwhat.ARCANE_SHARD.stage.2",
+          "recipes": ["infwhat:arcane_ord_record_shard"]
+        }
+      ]
+    }
+  ]
+}
