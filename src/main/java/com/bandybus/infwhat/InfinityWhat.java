@@ -42,8 +42,10 @@ public class InfinityWhat {
             "ae2", "mekanism", "pipez", "gtm", "gregtech", "create"
     };
 
-    public InfinityWhat(FMLJavaModLoadingContext context) {
-        IEventBus modEventBus = context.getModEventBus();
+    public InfinityWhat() {
+        // Forge 1.19.4 instantiates the mod class through its no-arg constructor; constructor
+        // injection of FMLJavaModLoadingContext only exists in later Forge versions.
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
@@ -52,7 +54,7 @@ public class InfinityWhat {
         ModMenuTypes.register(modEventBus);
         ModNetworking.register();
 
-        InfinityWhatConfig.register(context);
+        InfinityWhatConfig.register();
 
         modEventBus.addListener(this::commonSetup);
     }

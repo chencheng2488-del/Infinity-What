@@ -2,7 +2,7 @@ package com.bandybus.infwhat.config;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -42,6 +42,10 @@ public class InfinityWhatConfig {
     public static class Common {
         public final ForgeConfigSpec.BooleanValue enableInfiniteSource;
         public final ForgeConfigSpec.IntValue finiteTankCapacity;
+        public final ForgeConfigSpec.LongValue maxItemRatePerSide;
+        public final ForgeConfigSpec.LongValue maxItemTotalRate;
+        public final ForgeConfigSpec.LongValue maxFluidRatePerSideMb;
+        public final ForgeConfigSpec.LongValue maxFluidTotalRateMb;
         public final ForgeConfigSpec.EnumValue<FilterMode> itemFilterMode;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> itemFilterList;
         public final ForgeConfigSpec.EnumValue<FilterMode> fluidFilterMode;
@@ -57,6 +61,28 @@ public class InfinityWhatConfig {
             this.finiteTankCapacity = builder
                     .comment("Capacity in mB used when enableInfiniteSource is false.")
                     .defineInRange("finiteTankCapacity", 16000, 1, Integer.MAX_VALUE);
+            builder.pop();
+
+            builder.comment("Server-side output limits. Rates are per side unless stated otherwise.",
+                            "The totals are the sum of all enabled sides; writes above a limit are rejected.")
+                    .push("limits");
+            this.maxItemRatePerSide = builder
+                    .comment("Maximum item rate per side, in items per tick.")
+                    .defineInRange("maxItemRatePerSide",
+                            (long) Integer.MAX_VALUE, 1L, (long) Integer.MAX_VALUE);
+            this.maxItemTotalRate = builder
+                    .comment("Maximum total item rate, in items per tick.")
+                    .defineInRange("maxItemTotalRate",
+                            (long) Integer.MAX_VALUE * 6L, 1L, Long.MAX_VALUE);
+            this.maxFluidRatePerSideMb = builder
+                    .comment("Maximum fluid rate per side, in mB per tick.")
+                    .defineInRange("maxFluidRatePerSideMb",
+                            (long) Integer.MAX_VALUE * 1_000L,
+                            1L, (long) Integer.MAX_VALUE * 1_000L);
+            this.maxFluidTotalRateMb = builder
+                    .comment("Maximum total fluid rate, in mB per tick.")
+                    .defineInRange("maxFluidTotalRateMb",
+                            (long) Integer.MAX_VALUE * 1_000L * 6L, 1L, Long.MAX_VALUE);
             builder.pop();
 
             builder.comment("Item filter for the item generator.").push("item_filter");
@@ -91,6 +117,22 @@ public class InfinityWhatConfig {
         return COMMON.finiteTankCapacity.get();
     }
 
+    public static long maxItemRatePerSide() {
+        return COMMON.maxItemRatePerSide.get();
+    }
+
+    public static long maxItemTotalRate() {
+        return COMMON.maxItemTotalRate.get();
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return COMMON.maxFluidRatePerSideMb.get();
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return COMMON.maxFluidTotalRateMb.get();
+    }
+
     /** Whether the given item id may be inserted into the item generator. */
     public static boolean isItemAllowed(@Nullable ResourceLocation itemId) {
         return isAllowed(COMMON.itemFilterMode.get(), COMMON.itemFilterList.get(), itemId);
@@ -110,8 +152,8 @@ public class InfinityWhatConfig {
         return mode == FilterMode.BLACKLIST ? !listed : listed;
     }
 
-    public static void register(FMLJavaModLoadingContext context) {
-        context.registerConfig(ModConfig.Type.COMMON, SPEC, "infwhat.toml");
+    public static void register() {
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, SPEC, "infwhat.toml");
     }
 
     private InfinityWhatConfig() {
