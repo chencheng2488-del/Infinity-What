@@ -4,17 +4,20 @@ import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import com.bandybus.infwhat.block.entity.ModBlockEntities;
 import com.bandybus.infwhat.item.ModItems;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
@@ -45,6 +48,28 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_FLUID_GENERATOR.get(),
                 InfFluidGeneratorBlockEntity::serverTick);
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                   Orientation orientation, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, orientation, isMoving);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof InfFluidGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos, Direction direction) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfFluidGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
     }
 
     @Override

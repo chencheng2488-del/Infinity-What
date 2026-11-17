@@ -1,9 +1,12 @@
 package com.bandybus.infwhat.client.screen;
 
 import com.bandybus.infwhat.InfinityWhat;
+import com.bandybus.infwhat.block.RedstoneMode;
+import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import com.bandybus.infwhat.client.network.ClientRateRequestSender;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
 import com.bandybus.infwhat.menu.InfFluidGeneratorMenu;
+import com.bandybus.infwhat.network.RateRejectReason;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -14,12 +17,14 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.block.FluidModel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.sounds.SoundEvents;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -35,6 +40,12 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                     "textures/gui/container/inf_fluid_generator.png");
     private static final Identifier IO_TEXTURE = Identifier.fromNamespaceAndPath(
             InfinityWhat.MOD_ID, "textures/gui/container/inf_source_io.png");
+    private static final Identifier FACE_TEXTURE = Identifier.fromNamespaceAndPath(
+            InfinityWhat.MOD_ID, "textures/gui/container/inf_source_face.png");
+    private static final Identifier REDSTONE_TEXTURE = Identifier.fromNamespaceAndPath(
+            InfinityWhat.MOD_ID, "textures/gui/container/inf_source_redstone.png");
+    private static final Identifier BATCH_TEXTURE = Identifier.fromNamespaceAndPath(
+            InfinityWhat.MOD_ID, "textures/gui/container/inf_source_batch.png");
 
     private static final int GUI_WIDTH = 184;
     private static final int GUI_HEIGHT = 178;
@@ -58,16 +69,24 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     private static final int IO_OUTPUT_Y = 21;
     private static final int IO_OUTPUT_WIDTH = 164;
     private static final int IO_OUTPUT_HEIGHT = 13;
-    private static final int IO_RATE_LABEL_X = 11;
+    private static final int IO_RATE_LABEL_BOX_LEFT = 12;
+    private static final int IO_RATE_LABEL_BOX_RIGHT = 52;
     private static final int IO_RATE_LABEL_Y = 39;
-    private static final int IO_RATE_FIELD_X = 55;
+    private static final int IO_RATE_FIELD_X = 58;
+    private static final int IO_RATE_FIELD_RIGHT = 150;
     private static final int IO_RATE_FIELD_Y = 39;
-    private static final int IO_RATE_FIELD_WIDTH = 95;
     private static final int IO_RATE_FIELD_HEIGHT = 9;
     private static final int IO_RATE_APPLY_X = 155;
     private static final int IO_RATE_APPLY_Y = 37;
     private static final int IO_RATE_APPLY_WIDTH = 19;
     private static final int IO_RATE_APPLY_HEIGHT = 13;
+    private static final int IO_MODE_X = 104;
+    private static final int IO_MODE_Y = 7;
+    private static final int IO_MODE_WIDTH = 50;
+    private static final int IO_MODE_HEIGHT = 12;
+
+    // Shared 3x2 face grid: simple mode toggles the face, advanced mode colors it and opens its
+    // detail page on click.
     private static final int IO_SIDE_LEFT_X = 10;
     private static final int IO_SIDE_RIGHT_X = 94;
     private static final int IO_SIDE_WIDTH = 80;
@@ -78,17 +97,73 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
             {Direction.NORTH, Direction.SOUTH},
             {Direction.WEST, Direction.EAST}
     };
+    private static final Direction[] IO_SIDE_ORDER = Direction.values();
+
+    private static final int DETAIL_BACK_X = 104;
+    private static final int DETAIL_BACK_Y = 7;
+    private static final int DETAIL_BACK_WIDTH = 50;
+    private static final int DETAIL_BACK_HEIGHT = 12;
+    private static final int DETAIL_RATE_LABEL_X = 14;
+    private static final int DETAIL_RATE_X = 56;
+    private static final int DETAIL_RATE_Y = 39;
+    private static final int DETAIL_RATE_HEIGHT = 9;
 
     private static final int BUTTON_OFF = 0xFF303B42;
     private static final int BUTTON_ON = 0xFF256B43;
     private static final int BUTTON_HOVER = 0xFF456C83;
+    private static final int FACE_ON_HOVER = 0xFF2E8050;
+    private static final int FACE_OFF_HOVER = 0xFF3C4A52;
     private static final int BUTTON_BORDER = 0xFF070B0E;
     private static final int BUTTON_TEXT = 0xFFF0F5F7;
     private static final int COLOR_TITLE = 0xFFE9F1F4;
     private static final int COLOR_TEXT = 0xFF9FB8C2;
 
-    private boolean ioPage;
+    // Persistent page tabs, drawn just above the GUI's top border so the accepted layout below
+    // stays untouched.
+    private static final int TAB_START_X = 8;
+    private static final int TAB_TOP_Y = -13;
+    private static final int TAB_HEIGHT = 13;
+    private static final int TAB_GAP = 2;
+    private static final int TAB_PADDING = 6;
+
+    private static final int RS_MODE_Y = 21;
+    private static final int RS_MODE_WIDTH = 41;
+    private static final int RS_MODE_HEIGHT = 13;
+    private static final int[] RS_MODE_X = {10, 51, 92, 133};
+    private static final int RS_PULSE_ON_LABEL_Y = 39;
+    private static final int RS_PULSE_OFF_LABEL_Y = 52;
+    private static final int RS_PULSE_ON_FIELD_X = 58;
+    private static final int RS_PULSE_ON_FIELD_RIGHT = 150;
+    private static final int RS_PULSE_OFF_FIELD_X = 98;
+    private static final int RS_PULSE_OFF_FIELD_RIGHT = 170;
+    private static final int RS_PULSE_FIELD_HEIGHT = 9;
+    private static final int RS_STATUS_Y = 65;
+    private static final int RS_NOTE_Y = 78;
+    private static final int RS_HELP_Y = 97;
+    private static final int RS_HELP_LINE = 11;
+
+    private static final int BATCH_LABEL_BOX_LEFT = 10;
+    private static final int BATCH_LABEL_BOX_WIDTH = 42;
+    private static final int BATCH_LABEL_Y = 39;
+    private static final int BATCH_FIELD_X = 58;
+    private static final int BATCH_FIELD_RIGHT = 150;
+    private static final int BATCH_INFO_Y = 54;
+    private static final int BATCH_NOTE_Y = 67;
+    private static final int BATCH_HELP_Y = 97;
+    private static final int BATCH_HELP_LINE = 11;
+
+    private GeneratorPage page = GeneratorPage.MAIN;
+    private boolean advancedMode;
+    private int faceDetail = -1;
     private EditBox outputRateField;
+    private final EditBox[] sideRateFields = new EditBox[IO_SIDE_ORDER.length];
+    private EditBox pulseOnField;
+    private EditBox pulseOffField;
+    private EditBox batchSizeField;
+    /** Field the player is currently typing in; protected from any server-driven refresh. */
+    private EditBox editingField;
+    private int refreshCooldown;
+    private RateUnit rateUnit = RateUnit.PER_TICK;
 
     public InfFluidGeneratorScreen(InfFluidGeneratorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, GUI_WIDTH, GUI_HEIGHT);
@@ -103,27 +178,221 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         super.init();
         this.outputRateField = new EditBox(this.font,
                 this.leftPos + IO_RATE_FIELD_X, this.topPos + IO_RATE_FIELD_Y,
-                IO_RATE_FIELD_WIDTH, IO_RATE_FIELD_HEIGHT,
+                IO_RATE_FIELD_RIGHT - IO_RATE_FIELD_X, IO_RATE_FIELD_HEIGHT,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.input"));
         this.outputRateField.setMaxLength(32);
-        this.outputRateField.setValue(formatOutputRate(this.menu.getOutputAmountPerTick()));
         this.outputRateField.setTextColor(BUTTON_TEXT);
         this.outputRateField.setBordered(false);
-        this.outputRateField.setVisible(this.ioPage);
+        this.outputRateField.setVisible(isIoPage());
         this.addRenderableWidget(this.outputRateField);
+
+        for (int i = 0; i < this.sideRateFields.length; i++) {
+            EditBox field = new EditBox(this.font,
+                    this.leftPos + DETAIL_RATE_X, this.topPos + DETAIL_RATE_Y,
+                    IO_RATE_FIELD_RIGHT - DETAIL_RATE_X, DETAIL_RATE_HEIGHT,
+                    Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.side.rate.input"));
+            field.setMaxLength(32);
+            field.setTextColor(BUTTON_TEXT);
+            field.setBordered(false);
+            field.setVisible(false);
+            this.sideRateFields[i] = field;
+            this.addRenderableWidget(field);
+        }
+        this.pulseOnField = createPulseField(
+                RS_PULSE_ON_FIELD_X, RS_PULSE_ON_FIELD_RIGHT, RS_PULSE_ON_LABEL_Y);
+        this.pulseOffField = createPulseField(
+                RS_PULSE_OFF_FIELD_X, RS_PULSE_OFF_FIELD_RIGHT, RS_PULSE_OFF_LABEL_Y);
+        this.batchSizeField = new EditBox(this.font,
+                this.leftPos + BATCH_FIELD_X, this.topPos + BATCH_LABEL_Y,
+                BATCH_FIELD_RIGHT - BATCH_FIELD_X, RS_PULSE_FIELD_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".batch.input"));
+        this.batchSizeField.setMaxLength(2);
+        this.batchSizeField.setTextColor(BUTTON_TEXT);
+        this.batchSizeField.setBordered(false);
+        this.batchSizeField.setVisible(false);
+        this.addRenderableWidget(this.batchSizeField);
+        setPage(GeneratorPage.MAIN, -1);
+    }
+
+    private EditBox createPulseField(int x, int right, int y) {
+        EditBox field = new EditBox(this.font,
+                this.leftPos + x, this.topPos + y,
+                right - x, RS_PULSE_FIELD_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.pulse.input"));
+        field.setMaxLength(5);
+        field.setTextColor(BUTTON_TEXT);
+        field.setBordered(false);
+        field.setVisible(false);
+        this.addRenderableWidget(field);
+        return field;
+    }
+
+    private void refreshOutputRateFields() {
+        boolean mixed = this.menu.hasMixedSideRates();
+        if (!this.outputRateField.isFocused() && this.outputRateField != this.editingField) {
+            this.outputRateField.setValue(mixed ? "" : formatUnitRate(this.menu.getUniformSideRateMb()));
+            this.outputRateField.setHint(mixed
+                    ? Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.mixed")
+                    : Component.empty());
+        }
+        for (int i = 0; i < this.sideRateFields.length; i++) {
+            EditBox field = this.sideRateFields[i];
+            if (!field.isFocused() && field != this.editingField) {
+                field.setValue(formatUnitRate(this.menu.getSideRateMb(IO_SIDE_ORDER[i])));
+            }
+        }
+        if (!this.pulseOnField.isFocused() && this.pulseOnField != this.editingField) {
+            this.pulseOnField.setValue(Integer.toString(this.menu.getPulseOnTicks()));
+        }
+        if (!this.pulseOffField.isFocused() && this.pulseOffField != this.editingField) {
+            this.pulseOffField.setValue(Integer.toString(this.menu.getPulseOffTicks()));
+        }
+        if (!this.batchSizeField.isFocused() && this.batchSizeField != this.editingField) {
+            this.batchSizeField.setValue(Integer.toString(this.menu.getBatchSize()));
+        }
+    }
+
+    private String rateLabelText() {
+        return Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.label").getString()
+                + this.rateUnit.suffix();
+    }
+
+    private String formatUnitRate(long perTickMb) {
+        return formatOutputRate(this.rateUnit.fromPerTick(perTickMb));
+    }
+
+    private boolean isInsideRateLabel(int x, int y, boolean detailPage) {
+        if (detailPage) {
+            return isInside(x, y, DETAIL_RATE_LABEL_X, DETAIL_RATE_Y - 1,
+                    this.font.width(rateLabelText()), 10);
+        }
+        return isInside(x, y, IO_RATE_LABEL_BOX_LEFT, IO_RATE_LABEL_Y - 1,
+                IO_RATE_LABEL_BOX_RIGHT - IO_RATE_LABEL_BOX_LEFT, 10);
+    }
+
+    private boolean isHoveringRateLabel(int mouseX, int mouseY, boolean detailPage) {
+        return isInsideRateLabel(mouseX - this.leftPos, mouseY - this.topPos, detailPage);
+    }
+
+    private void cycleRateUnit() {
+        this.outputRateField.setFocused(false);
+        for (EditBox field : this.sideRateFields) {
+            field.setFocused(false);
+        }
+        this.editingField = null;
+        this.rateUnit = this.rateUnit.next();
+        refreshOutputRateFields();
+    }
+
+    private void setPage(GeneratorPage page, int faceDetail) {
+        clearEditingField();
+        this.page = page;
+        this.faceDetail = page == GeneratorPage.FACE_DETAIL ? faceDetail : -1;
+        this.menu.setPlayerSlotsVisible(page.showsInventory());
+        if (page == GeneratorPage.MAIN) {
+            this.outputRateField.setFocused(false);
+        }
+        refreshOutputRateFields();
+        updateFieldVisibility();
+    }
+
+    private boolean isIoPage() {
+        return this.page.isIoPage();
+    }
+
+    private boolean isFaceDetailPage() {
+        return this.page.isFaceDetail();
+    }
+
+    private void updateFieldVisibility() {
+        boolean ioList = this.page == GeneratorPage.IO_LIST;
+        boolean redstone = this.page.isRedstone();
+        boolean batch = this.page.isBatch();
+        this.outputRateField.setVisible(ioList);
+        if (!ioList) {
+            this.outputRateField.setFocused(false);
+        }
+        this.pulseOnField.setVisible(redstone);
+        this.pulseOffField.setVisible(redstone);
+        if (!redstone) {
+            this.pulseOnField.setFocused(false);
+            this.pulseOffField.setFocused(false);
+        }
+        this.batchSizeField.setVisible(batch);
+        if (!batch) {
+            this.batchSizeField.setFocused(false);
+        }
+        updateSideFieldVisibility();
+    }
+
+    private void updateSideFieldVisibility() {
+        for (int i = 0; i < this.sideRateFields.length; i++) {
+            EditBox field = this.sideRateFields[i];
+            boolean show = isFaceDetailPage() && this.faceDetail == i;
+            if (show) {
+                field.setX(this.leftPos + DETAIL_RATE_X);
+                field.setY(this.topPos + DETAIL_RATE_Y);
+                field.setWidth(IO_RATE_FIELD_RIGHT - DETAIL_RATE_X);
+            }
+            field.setVisible(show);
+            if (!show) {
+                field.setFocused(false);
+            }
+        }
+    }
+
+    /** The visible input field under the given GUI-relative point, or null. */
+    private EditBox inputFieldAt(int x, int y) {
+        if (this.page == GeneratorPage.IO_LIST
+                && isInside(x, y, IO_RATE_FIELD_X, IO_RATE_FIELD_Y,
+                        IO_RATE_FIELD_RIGHT - IO_RATE_FIELD_X, IO_RATE_FIELD_HEIGHT)) {
+            return this.outputRateField;
+        }
+        if (this.page.isFaceDetail()
+                && isInside(x, y, DETAIL_RATE_X, DETAIL_RATE_Y,
+                        IO_RATE_FIELD_RIGHT - DETAIL_RATE_X, DETAIL_RATE_HEIGHT)) {
+            return this.sideRateFields[this.faceDetail];
+        }
+        if (this.page.isRedstone()) {
+            if (isInside(x, y, RS_PULSE_ON_FIELD_X, RS_PULSE_ON_LABEL_Y,
+                    RS_PULSE_ON_FIELD_RIGHT - RS_PULSE_ON_FIELD_X, RS_PULSE_FIELD_HEIGHT)) {
+                return this.pulseOnField;
+            }
+            if (isInside(x, y, RS_PULSE_OFF_FIELD_X, RS_PULSE_OFF_LABEL_Y,
+                    RS_PULSE_OFF_FIELD_RIGHT - RS_PULSE_OFF_FIELD_X, RS_PULSE_FIELD_HEIGHT)) {
+                return this.pulseOffField;
+            }
+        }
+        if (this.page.isBatch()
+                && isInside(x, y, BATCH_FIELD_X, BATCH_LABEL_Y,
+                        BATCH_FIELD_RIGHT - BATCH_FIELD_X, RS_PULSE_FIELD_HEIGHT)) {
+            return this.batchSizeField;
+        }
+        return null;
+    }
+
+    private void clearEditingField() {
+        if (this.editingField != null) {
+            this.editingField.setFocused(false);
+            this.editingField = null;
+            this.refreshCooldown = 10;
+        }
     }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractBackground(graphics, mouseX, mouseY, partialTick);
-        if (this.ioPage) {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, IO_TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
+        if (this.page.isSecondary()) {
+            Identifier texture = isFaceDetailPage() ? FACE_TEXTURE
+                    : this.page.isRedstone() ? REDSTONE_TEXTURE
+                    : this.page.isBatch() ? BATCH_TEXTURE : IO_TEXTURE;
+            graphics.blit(RenderPipelines.GUI_TEXTURED, texture, this.leftPos, this.topPos, 0.0F, 0.0F,
                     GUI_WIDTH, GUI_HEIGHT, GUI_WIDTH, GUI_HEIGHT);
         } else {
             graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0.0F, 0.0F,
                     this.imageWidth, this.imageHeight, TEXTURE_WIDTH, TEXTURE_HEIGHT);
         }
-        if (!this.ioPage) {
+        if (this.page == GeneratorPage.MAIN) {
             renderFluid(graphics);
         }
     }
@@ -162,27 +431,103 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
 
     @Override
     protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        if (!this.ioPage) {
+        if (this.page == GeneratorPage.MAIN) {
             graphics.text(this.font, this.title, this.titleLabelX, this.titleLabelY,
                     COLOR_TITLE, false);
+            graphics.text(this.font, this.playerInventoryTitle,
+                    this.inventoryLabelX, this.inventoryLabelY, COLOR_TITLE, false);
         }
-        graphics.text(this.font, this.playerInventoryTitle,
-                this.inventoryLabelX, this.inventoryLabelY, COLOR_TITLE, false);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        if (this.editingField != null && this.editingField.isVisible()
+                && !this.editingField.isFocused()) {
+            this.editingField.setFocused(true);
+        }
         // Keep JEI, FTB and other third-party controls in their original screen coordinates.
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
-        if (this.ioPage) {
+        if (this.page.isSecondary()) {
+            if (this.refreshCooldown > 0) {
+                this.refreshCooldown--;
+            } else {
+                refreshOutputRateFields();
+            }
+        }
+        if (isIoPage()) {
             renderIoPage(graphics, mouseX, mouseY);
+        } else if (this.page.isRedstone()) {
+            renderRedstonePage(graphics, mouseX, mouseY);
+        } else if (this.page.isBatch()) {
+            renderBatchPage(graphics, mouseX, mouseY);
         } else {
             renderFluidInfo(graphics);
             renderMainButtons(graphics, mouseX, mouseY);
         }
 
+        renderTabs(graphics, mouseX, mouseY);
         renderControlTooltip(graphics, mouseX, mouseY);
+    }
+
+    private void renderTabs(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        drawTab(graphics, TAB_START_X, mainTabWidth(), mainTabLabel(),
+                this.page == GeneratorPage.MAIN, mouseX, mouseY);
+        drawTab(graphics, ioTabX(), tabWidth(ioTabLabel()), ioTabLabel(),
+                isIoPage(), mouseX, mouseY);
+        drawTab(graphics, redstoneTabX(), tabWidth(redstoneTabLabel()), redstoneTabLabel(),
+                this.page.isRedstone(), mouseX, mouseY);
+        drawTab(graphics, batchTabX(), tabWidth(batchTabLabel()), batchTabLabel(),
+                this.page.isBatch(), mouseX, mouseY);
+    }
+
+    private Component mainTabLabel() {
+        return Component.translatable("gui." + InfinityWhat.MOD_ID + ".page.main");
+    }
+
+    private Component ioTabLabel() {
+        return Component.translatable("gui." + InfinityWhat.MOD_ID + ".page.io");
+    }
+
+    private Component redstoneTabLabel() {
+        return Component.translatable("gui." + InfinityWhat.MOD_ID + ".page.redstone");
+    }
+
+    private Component batchTabLabel() {
+        return Component.translatable("gui." + InfinityWhat.MOD_ID + ".page.batch");
+    }
+
+    private int mainTabWidth() {
+        return tabWidth(mainTabLabel());
+    }
+
+    private int redstoneTabX() {
+        return ioTabX() + tabWidth(ioTabLabel()) + TAB_GAP;
+    }
+
+    private int batchTabX() {
+        return redstoneTabX() + tabWidth(redstoneTabLabel()) + TAB_GAP;
+    }
+
+    private int ioTabX() {
+        return TAB_START_X + mainTabWidth() + TAB_GAP;
+    }
+
+    private int tabWidth(Component label) {
+        return this.font.width(label) + TAB_PADDING * 2;
+    }
+
+    private void drawTab(GuiGraphicsExtractor graphics, int x, int width, Component label,
+                         boolean active, int mouseX, int mouseY) {
+        int absoluteX = this.leftPos + x;
+        int absoluteY = this.topPos + TAB_TOP_Y;
+        boolean hovered = isHovering(x, TAB_TOP_Y, width, TAB_HEIGHT, mouseX, mouseY);
+        graphics.fill(absoluteX - 1, absoluteY - 1, absoluteX + width + 1,
+                absoluteY + TAB_HEIGHT, BUTTON_BORDER);
+        int fill = hovered ? BUTTON_HOVER : (active ? BUTTON_ON : BUTTON_OFF);
+        graphics.fill(absoluteX, absoluteY, absoluteX + width, absoluteY + TAB_HEIGHT, fill);
+        graphics.text(this.font, label, absoluteX + (width - this.font.width(label)) / 2,
+                absoluteY + (TAB_HEIGHT - 8) / 2, BUTTON_TEXT);
     }
 
     private void renderFluidInfo(GuiGraphicsExtractor graphics) {
@@ -230,6 +575,13 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         return millibuckets + " mB";
     }
 
+    private String truncate(String value, int maxWidth) {
+        if (this.font.width(value) > maxWidth) {
+            return this.font.plainSubstrByWidth(value, maxWidth - this.font.width("...")) + "...";
+        }
+        return value;
+    }
+
     private void drawTruncated(GuiGraphicsExtractor graphics, Component text, int y, int color) {
         String value = text.getString();
         if (this.font.width(value) > TEXT_MAX_WIDTH) {
@@ -248,9 +600,22 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     }
 
     private void renderIoPage(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        graphics.text(this.font,
-                Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.title"),
+        if (isFaceDetailPage()) {
+            renderFaceDetail(graphics, mouseX, mouseY);
+        } else {
+            renderIoList(graphics, mouseX, mouseY);
+        }
+    }
+
+    private void renderIoList(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        String title = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.title_total",
+                formatUnitRate(this.menu.getTotalEffectiveRateMb()) + this.rateUnit.suffix()).getString();
+        graphics.text(this.font, truncate(title, IO_MODE_X - 16),
                 this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
+        drawButton(graphics, IO_MODE_X, IO_MODE_Y, IO_MODE_WIDTH, IO_MODE_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.mode."
+                        + (this.advancedMode ? "simple" : "advanced")), false,
+                isHovering(IO_MODE_X, IO_MODE_Y, IO_MODE_WIDTH, IO_MODE_HEIGHT, mouseX, mouseY));
 
         drawButton(graphics, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT,
                 Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.back"), false,
@@ -261,9 +626,12 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 this.menu.isOutputEnabled(),
                 isHovering(IO_OUTPUT_X, IO_OUTPUT_Y, IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT, mouseX, mouseY));
 
-        graphics.text(this.font,
-                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.label"),
-                this.leftPos + IO_RATE_LABEL_X, this.topPos + IO_RATE_LABEL_Y, BUTTON_TEXT, false);
+        String rateLabel = rateLabelText();
+        int rateLabelX = IO_RATE_LABEL_BOX_LEFT + (IO_RATE_LABEL_BOX_RIGHT - IO_RATE_LABEL_BOX_LEFT
+                - this.font.width(rateLabel)) / 2;
+        graphics.text(this.font, rateLabel,
+                this.leftPos + rateLabelX, this.topPos + IO_RATE_LABEL_Y,
+                isHoveringRateLabel(mouseX, mouseY, false) ? 0xFFFFD27F : BUTTON_TEXT, false);
         drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
                 IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT, Component.literal("✓"), false,
                 isHovering(IO_RATE_APPLY_X, IO_RATE_APPLY_Y, IO_RATE_APPLY_WIDTH,
@@ -275,12 +643,266 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 int x = column == 0 ? IO_SIDE_LEFT_X : IO_SIDE_RIGHT_X;
                 int y = IO_SIDE_ROW_YS[row];
                 boolean enabled = this.menu.isOutputSideEnabled(direction);
-                drawButton(graphics, x, y, IO_SIDE_WIDTH, IO_SIDE_HEIGHT,
-                        Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.side."
-                                + direction.getName() + (enabled ? ".on" : ".off")),
-                        enabled, isHovering(x, y, IO_SIDE_WIDTH, IO_SIDE_HEIGHT, mouseX, mouseY));
+                boolean hovered = isHovering(x, y, IO_SIDE_WIDTH, IO_SIDE_HEIGHT, mouseX, mouseY);
+                if (this.advancedMode) {
+                    drawFaceButton(graphics, x, y, IO_SIDE_WIDTH, IO_SIDE_HEIGHT,
+                            direction, enabled, hovered);
+                } else {
+                    drawButton(graphics, x, y, IO_SIDE_WIDTH, IO_SIDE_HEIGHT,
+                            Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.side."
+                                    + direction.getName() + (enabled ? ".on" : ".off")),
+                            enabled, hovered);
+                }
             }
         }
+    }
+
+    private void renderFaceDetail(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        Direction direction = IO_SIDE_ORDER[this.faceDetail];
+        String title = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.detail.title",
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.side.short."
+                        + direction.getName())).getString();
+        graphics.text(this.font, truncate(title, DETAIL_BACK_X - 16),
+                this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
+        drawButton(graphics, DETAIL_BACK_X, DETAIL_BACK_Y, DETAIL_BACK_WIDTH, DETAIL_BACK_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.detail.back"), false,
+                isHovering(DETAIL_BACK_X, DETAIL_BACK_Y, DETAIL_BACK_WIDTH, DETAIL_BACK_HEIGHT,
+                        mouseX, mouseY));
+        drawButton(graphics, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.back"), false,
+                isHovering(IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT, mouseX, mouseY));
+        drawButton(graphics, IO_OUTPUT_X, IO_OUTPUT_Y, IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.detail.output."
+                        + (this.menu.isOutputSideEnabled(direction) ? "on" : "off")),
+                this.menu.isOutputSideEnabled(direction), isHovering(IO_OUTPUT_X, IO_OUTPUT_Y,
+                        IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT, mouseX, mouseY));
+        graphics.text(this.font, rateLabelText(),
+                this.leftPos + DETAIL_RATE_LABEL_X, this.topPos + DETAIL_RATE_Y,
+                isHoveringRateLabel(mouseX, mouseY, true) ? 0xFFFFD27F : BUTTON_TEXT, false);
+        drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT,
+                Component.literal("✓"), false, isHovering(IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT, mouseX, mouseY));
+
+        BlockPos pos = this.menu.getBlockEntity().getBlockPos().relative(direction);
+        graphics.text(this.font, truncate(Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".io.detail.facing", getNeighborName(direction)).getString(),
+                        GUI_WIDTH - 24), this.leftPos + 12, this.topPos + 56, BUTTON_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".io.detail.id", getNeighborId(direction)).getString(),
+                        GUI_WIDTH - 24), this.leftPos + 12, this.topPos + 70, COLOR_TEXT, false);
+        graphics.text(this.font, Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.detail.pos",
+                        pos.getX(), pos.getY(), pos.getZ()).getString(),
+                this.leftPos + 12, this.topPos + 84, COLOR_TEXT, false);
+        graphics.text(this.font,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.detail.hint"),
+                this.leftPos + 12, this.topPos + 137, COLOR_TEXT, false);
+    }
+
+    private void renderRedstonePage(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        graphics.text(this.font,
+                truncate(Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.title").getString(),
+                        IO_MODE_X - 16),
+                this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
+        RedstoneMode mode = this.menu.getRedstoneMode();
+        RedstoneMode[] modes = RedstoneMode.values();
+        for (int i = 0; i < modes.length && i < RS_MODE_X.length; i++) {
+            drawModeButton(graphics, i, Component.translatable("gui." + InfinityWhat.MOD_ID
+                    + ".redstone.mode." + modes[i].key()), mode == modes[i], mouseX, mouseY);
+        }
+        drawCenteredInBox(graphics,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.pulse.on"),
+                12, 40, RS_PULSE_ON_LABEL_Y);
+        drawCenteredInBox(graphics,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.pulse.off"),
+                10, 80, RS_PULSE_OFF_LABEL_Y);
+        drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT,
+                Component.literal("✓"), false, isHovering(IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT, mouseX, mouseY));
+        graphics.text(this.font, truncate(redstoneStatus().getString(), 74),
+                this.leftPos + 14, this.topPos + RS_STATUS_Y, redstoneStatusColor(), false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".redstone.comparator",
+                        this.menu.getBlockEntity().getComparatorOutput()).getString(), 74),
+                this.leftPos + 98, this.topPos + RS_STATUS_Y, COLOR_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".redstone.pulse.note").getString(), 74),
+                this.leftPos + 14, this.topPos + RS_NOTE_Y, COLOR_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".redstone.pulse.range").getString(), 74),
+                this.leftPos + 98, this.topPos + RS_NOTE_Y, COLOR_TEXT, false);
+        drawButton(graphics, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT,
+                Component.literal("×"), false, isHovering(IO_CLOSE_X, IO_CLOSE_Y,
+                        IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT, mouseX, mouseY));
+        for (int i = 0; i < 6; i++) {
+            graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                            + ".redstone.help." + (i + 1)).getString(), 158),
+                    this.leftPos + 14, this.topPos + RS_HELP_Y + i * RS_HELP_LINE,
+                    COLOR_TEXT, false);
+        }
+    }
+
+    private void renderBatchPage(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        graphics.text(this.font,
+                truncate(Component.translatable("gui." + InfinityWhat.MOD_ID + ".batch.title").getString(),
+                        IO_MODE_X - 16),
+                this.leftPos + 12, this.topPos + 8, BUTTON_TEXT, false);
+        drawCenteredInBox(graphics,
+                Component.translatable("gui." + InfinityWhat.MOD_ID + ".batch.label"),
+                BATCH_LABEL_BOX_LEFT, BATCH_LABEL_BOX_WIDTH, BATCH_LABEL_Y);
+        drawButton(graphics, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT,
+                Component.literal("✓"), false, isHovering(IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT, mouseX, mouseY));
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".batch.info.period", this.menu.getBatchSize()).getString(), 77),
+                this.leftPos + 12, this.topPos + BATCH_INFO_Y, BUTTON_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".batch.info.burst", formatOutputRate(
+                                (long) this.menu.getBatchSize() * this.menu.getTotalEffectiveRateMb())).getString(), 77),
+                this.leftPos + 96, this.topPos + BATCH_INFO_Y, BUTTON_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".batch.note.once").getString(), 77),
+                this.leftPos + 12, this.topPos + BATCH_NOTE_Y, COLOR_TEXT, false);
+        graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                        + ".batch.note.gated").getString(), 77),
+                this.leftPos + 96, this.topPos + BATCH_NOTE_Y, COLOR_TEXT, false);
+        drawButton(graphics, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT,
+                Component.literal("×"), false, isHovering(IO_CLOSE_X, IO_CLOSE_Y,
+                        IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT, mouseX, mouseY));
+        for (int i = 0; i < 6; i++) {
+            graphics.text(this.font, truncate(Component.translatable("gui." + InfinityWhat.MOD_ID
+                            + ".batch.help." + (i + 1)).getString(), 158),
+                    this.leftPos + 14, this.topPos + BATCH_HELP_Y + i * BATCH_HELP_LINE,
+                    COLOR_TEXT, false);
+        }
+    }
+
+    private void drawModeButton(GuiGraphicsExtractor graphics, int index, Component label,
+                                boolean active, int mouseX, int mouseY) {
+        int x = RS_MODE_X[index];
+        int absoluteX = this.leftPos + x;
+        int absoluteY = this.topPos + RS_MODE_Y;
+        boolean hovered = isHovering(x, RS_MODE_Y, RS_MODE_WIDTH, RS_MODE_HEIGHT, mouseX, mouseY);
+        if (active || hovered) {
+            graphics.fill(absoluteX + 2, absoluteY + 2,
+                    absoluteX + RS_MODE_WIDTH - 1, absoluteY + RS_MODE_HEIGHT - 1,
+                    hovered ? BUTTON_HOVER : BUTTON_ON);
+        }
+        if (index > 0) {
+            graphics.fill(absoluteX, absoluteY, absoluteX + 1,
+                    absoluteY + RS_MODE_HEIGHT, BUTTON_BORDER);
+        }
+        graphics.text(this.font, label, absoluteX + (RS_MODE_WIDTH - this.font.width(label)) / 2,
+                absoluteY + (RS_MODE_HEIGHT - 8) / 2, BUTTON_TEXT);
+    }
+
+    private void drawCenteredInBox(GuiGraphicsExtractor graphics, Component label,
+                                   int boxX, int boxWidth, int y) {
+        int x = boxX + (boxWidth - this.font.width(label)) / 2;
+        graphics.text(this.font, label, this.leftPos + x, this.topPos + y, BUTTON_TEXT, false);
+    }
+
+    private int redstoneStatusColor() {
+        if (!this.menu.isOutputEnabled() || this.menu.getTotalEffectiveRateMb() <= 0L) {
+            return COLOR_TEXT;
+        }
+        return this.menu.getBlockEntity().isRedstoneAllowed() ? 0xFF7CE38B : 0xFFFFC66D;
+    }
+
+    private Component redstoneStatus() {
+        if (!this.menu.isOutputEnabled()) {
+            return Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".redstone.status.output_off");
+        }
+        if (this.menu.getTotalEffectiveRateMb() <= 0L) {
+            return Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".redstone.status.no_sides");
+        }
+        if (!this.menu.getBlockEntity().isRedstoneAllowed()) {
+            return switch (this.menu.getRedstoneMode()) {
+                case HIGH -> Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".redstone.status.waiting_signal");
+                case LOW -> Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".redstone.status.waiting_low");
+                case PULSE -> Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".redstone.status.pulse_off");
+                default -> Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".redstone.status.running");
+            };
+        }
+        return Component.translatable(
+                "gui." + InfinityWhat.MOD_ID + ".redstone.status.running");
+    }
+
+    private void submitPulse() {
+        try {
+            int onTicks = Integer.parseInt(this.pulseOnField.getValue().trim());
+            int offTicks = Integer.parseInt(this.pulseOffField.getValue().trim());
+            if (onTicks < InfFluidGeneratorBlockEntity.MIN_PULSE_TICKS
+                    || onTicks > InfFluidGeneratorBlockEntity.MAX_PULSE_TICKS
+                    || offTicks < InfFluidGeneratorBlockEntity.MIN_PULSE_TICKS
+                    || offTicks > InfFluidGeneratorBlockEntity.MAX_PULSE_TICKS) {
+                throw new NumberFormatException();
+            }
+            ClientRateRequestSender.sendRedstone(this.menu.containerId, true,
+                    this.menu.getRedstoneMode().ordinal(), onTicks, offTicks);
+            this.pulseOnField.setValue(Integer.toString(onTicks));
+            this.pulseOffField.setValue(Integer.toString(offTicks));
+        } catch (NumberFormatException exception) {
+            showInvalidPulse();
+        }
+    }
+
+    private void showInvalidPulse() {
+        this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+                "gui." + InfinityWhat.MOD_ID + ".redstone.pulse.invalid")
+                .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+    }
+
+    private void submitBatch() {
+        try {
+            int size = Integer.parseInt(this.batchSizeField.getValue().trim());
+            if (size < InfFluidGeneratorBlockEntity.MIN_BATCH_SIZE
+                    || size > InfFluidGeneratorBlockEntity.MAX_BATCH_SIZE) {
+                throw new NumberFormatException();
+            }
+            ClientRateRequestSender.sendBatch(this.menu.containerId, true, size);
+            this.batchSizeField.setValue(Integer.toString(size));
+        } catch (NumberFormatException exception) {
+            showInvalidBatch();
+        }
+    }
+
+    private void showInvalidBatch() {
+        this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+                "gui." + InfinityWhat.MOD_ID + ".batch.invalid")
+                .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+    }
+
+    private String getNeighborName(Direction direction) {
+        if (this.minecraft.level == null) {
+            return "-";
+        }
+        BlockPos pos = this.menu.getBlockEntity().getBlockPos().relative(direction);
+        if (!this.minecraft.level.isLoaded(pos)) {
+            return "-";
+        }
+        BlockState state = this.minecraft.level.getBlockState(pos);
+        return state.isAir() ? "-" : state.getBlock().getName().getString();
+    }
+
+    private String getNeighborId(Direction direction) {
+        if (this.minecraft.level == null) {
+            return "-";
+        }
+        BlockPos pos = this.menu.getBlockEntity().getBlockPos().relative(direction);
+        if (!this.minecraft.level.isLoaded(pos)) {
+            return "-";
+        }
+        BlockState state = this.minecraft.level.getBlockState(pos);
+        return state.isAir() ? "-" : BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
     }
 
     private void drawButton(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
@@ -296,6 +918,22 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 absoluteY + (height - 8) / 2, BUTTON_TEXT);
     }
 
+    /** Advanced-mode face button: color carries the on/off state, so no explicit switch text. */
+    private void drawFaceButton(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
+                                Direction direction, boolean enabled, boolean hovered) {
+        int absoluteX = this.leftPos + x;
+        int absoluteY = this.topPos + y;
+        graphics.fill(absoluteX - 1, absoluteY - 1, absoluteX + width + 1,
+                absoluteY + height + 1, BUTTON_BORDER);
+        int fill = enabled ? (hovered ? FACE_ON_HOVER : BUTTON_ON)
+                : (hovered ? FACE_OFF_HOVER : BUTTON_OFF);
+        graphics.fill(absoluteX, absoluteY, absoluteX + width, absoluteY + height, fill);
+        Component label = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.side."
+                + direction.getName());
+        graphics.text(this.font, label, absoluteX + (width - this.font.width(label)) / 2,
+                absoluteY + (height - 8) / 2, BUTTON_TEXT);
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         double mouseX = event.x();
@@ -303,7 +941,7 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         // 1.21.9+ 的 MouseButtonEvent 用 1/3 表示左/右键；容器输入需要 0/1，
         // 映射与 AbstractContainerScreen.getContainerClickButton 一致。
         int button = switch (event.button()) { case 1 -> 0; case 3 -> 1; default -> event.button(); };
-        if (!this.ioPage && (button == 0 || button == 1) && isOverTank(mouseX, mouseY)) {
+        if (this.page == GeneratorPage.MAIN && (button == 0 || button == 1) && isOverTank(mouseX, mouseY)) {
             this.minecraft.gameMode.handleContainerInput(this.menu.containerId,
                     InfFluidGeneratorMenu.FLUID_SLOT_INDEX, button, ContainerInput.PICKUP, this.minecraft.player);
             return true;
@@ -312,7 +950,45 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         int x = (int) mouseX - this.leftPos;
         int y = (int) mouseY - this.topPos;
         if (button == 0) {
-            if (!this.ioPage) {
+            EditBox field = inputFieldAt(x, y);
+            if (field != null) {
+                clearEditingField();
+                this.editingField = field;
+                field.setFocused(true);
+                // Still dispatch through the vanilla screen so its focused listener is updated;
+                // character input is routed through Screen.getFocused(), not the widget flag.
+                return super.mouseClicked(event, doubleClick);
+            }
+            clearEditingField();
+            if (isInside(x, y, TAB_START_X, TAB_TOP_Y, mainTabWidth(), TAB_HEIGHT)) {
+                if (this.page.isSecondary()) {
+                    playButtonSound();
+                    returnToMainPage();
+                }
+                return true;
+            }
+            if (isInside(x, y, ioTabX(), TAB_TOP_Y, tabWidth(ioTabLabel()), TAB_HEIGHT)) {
+                if (this.page != GeneratorPage.IO_LIST) {
+                    playButtonSound();
+                    setPage(GeneratorPage.IO_LIST, -1);
+                }
+                return true;
+            }
+            if (isInside(x, y, redstoneTabX(), TAB_TOP_Y, tabWidth(redstoneTabLabel()), TAB_HEIGHT)) {
+                if (!this.page.isRedstone()) {
+                    playButtonSound();
+                    setPage(GeneratorPage.REDSTONE, -1);
+                }
+                return true;
+            }
+            if (isInside(x, y, batchTabX(), TAB_TOP_Y, tabWidth(batchTabLabel()), TAB_HEIGHT)) {
+                if (!this.page.isBatch()) {
+                    playButtonSound();
+                    setPage(GeneratorPage.BATCH, -1);
+                }
+                return true;
+            }
+            if (this.page == GeneratorPage.MAIN) {
                 if (isInside(x, y, MAIN_CLEAR_X, MAIN_CLEAR_Y, MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT)) {
                     playButtonSound();
                     this.minecraft.gameMode.handleInventoryButtonClick(
@@ -321,12 +997,85 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 }
                 if (isInside(x, y, MAIN_IO_X, MAIN_CLEAR_Y, MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT)) {
                     playButtonSound();
-                    this.ioPage = true;
-                    this.outputRateField.setValue(formatOutputRate(this.menu.getOutputAmountPerTick()));
-                    this.outputRateField.setVisible(true);
+                    setPage(GeneratorPage.IO_LIST, -1);
+                    return true;
+                }
+            } else if (this.page.isRedstone()) {
+                RedstoneMode[] modes = RedstoneMode.values();
+                for (int i = 0; i < modes.length && i < RS_MODE_X.length; i++) {
+                    if (isInside(x, y, RS_MODE_X[i], RS_MODE_Y, RS_MODE_WIDTH, RS_MODE_HEIGHT)) {
+                        playButtonSound();
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId,
+                                InfFluidGeneratorMenu.BUTTON_REDSTONE_MODE_BASE + i);
+                        return true;
+                    }
+                }
+                if (isInside(x, y, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT)) {
+                    playButtonSound();
+                    submitPulse();
+                    return true;
+                }
+                if (isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT)) {
+                    playButtonSound();
+                    returnToMainPage();
+                    return true;
+                }
+            } else if (this.page.isBatch()) {
+                if (isInside(x, y, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT)) {
+                    playButtonSound();
+                    submitBatch();
+                    return true;
+                }
+                if (isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT)) {
+                    playButtonSound();
+                    returnToMainPage();
+                    return true;
+                }
+            } else if (isFaceDetailPage()) {
+                Direction direction = IO_SIDE_ORDER[this.faceDetail];
+                if (isInsideRateLabel(x, y, true)) {
+                    playButtonSound();
+                    cycleRateUnit();
+                    return true;
+                }
+                if (isInside(x, y, DETAIL_BACK_X, DETAIL_BACK_Y,
+                        DETAIL_BACK_WIDTH, DETAIL_BACK_HEIGHT)) {
+                    playButtonSound();
+                    setPage(GeneratorPage.IO_LIST, -1);
+                    return true;
+                }
+                if (isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT)) {
+                    playButtonSound();
+                    returnToMainPage();
+                    return true;
+                }
+                if (isInside(x, y, IO_OUTPUT_X, IO_OUTPUT_Y, IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT)) {
+                    playButtonSound();
+                    int buttonId = InfFluidGeneratorMenu.BUTTON_TOGGLE_SIDE_BASE
+                            + direction.get3DDataValue();
+                    this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, buttonId);
+                    return true;
+                }
+                if (isInside(x, y, IO_RATE_APPLY_X, IO_RATE_APPLY_Y,
+                        IO_RATE_APPLY_WIDTH, IO_RATE_APPLY_HEIGHT)) {
+                    playButtonSound();
+                    submitSideRate(this.faceDetail);
                     return true;
                 }
             } else {
+                if (isInsideRateLabel(x, y, false)) {
+                    playButtonSound();
+                    cycleRateUnit();
+                    return true;
+                }
+                if (isInside(x, y, IO_MODE_X, IO_MODE_Y, IO_MODE_WIDTH, IO_MODE_HEIGHT)) {
+                    playButtonSound();
+                    this.advancedMode = !this.advancedMode;
+                    setPage(GeneratorPage.IO_LIST, -1);
+                    return true;
+                }
                 if (isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y, IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT)) {
                     playButtonSound();
                     returnToMainPage();
@@ -350,9 +1099,15 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                         int sideY = IO_SIDE_ROW_YS[row];
                         if (isInside(x, y, sideX, sideY, IO_SIDE_WIDTH, IO_SIDE_HEIGHT)) {
                             playButtonSound();
-                            int buttonId = InfFluidGeneratorMenu.BUTTON_TOGGLE_SIDE_BASE
-                                    + IO_SIDE_LAYOUT[row][column].get3DDataValue();
-                            this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, buttonId);
+                            Direction direction = IO_SIDE_LAYOUT[row][column];
+                            if (this.advancedMode) {
+                                setPage(GeneratorPage.FACE_DETAIL, direction.get3DDataValue());
+                            } else {
+                                int buttonId = InfFluidGeneratorMenu.BUTTON_TOGGLE_SIDE_BASE
+                                        + direction.get3DDataValue();
+                                this.minecraft.gameMode.handleInventoryButtonClick(
+                                        this.menu.containerId, buttonId);
+                            }
                             return true;
                         }
                     }
@@ -365,43 +1120,129 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
     @Override
     public boolean keyPressed(KeyEvent event) {
         int keyCode = event.key();
-        if (this.ioPage && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
-            returnToMainPage();
+        if (this.page.isSecondary() && keyCode == SDLScancode.SDL_SCANCODE_ESCAPE) {
+            if (this.page.isFaceDetail()) {
+                setPage(GeneratorPage.IO_LIST, -1);
+            } else {
+                returnToMainPage();
+            }
             return true;
         }
-        if (this.ioPage && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
+        if (this.page == GeneratorPage.IO_LIST
+                && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
                 || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
             playButtonSound();
             submitOutputRate();
             return true;
         }
+        if (this.page.isFaceDetail()
+                && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
+                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+            playButtonSound();
+            submitSideRate(this.faceDetail);
+            return true;
+        }
+        if (this.page.isRedstone()
+                && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
+                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+            playButtonSound();
+            submitPulse();
+            return true;
+        }
+        if (this.page.isBatch()
+                && (keyCode == SDLScancode.SDL_SCANCODE_RETURN
+                || keyCode == SDLScancode.SDL_SCANCODE_KP_ENTER)) {
+            playButtonSound();
+            submitBatch();
+            return true;
+        }
+        EditBox focusedField = focusedInputField();
+        if (focusedField != null) {
+            // While an input field is focused, swallow every other key so the inventory
+            // key (E) and hotbar keys never close the GUI or swap items mid-typing.
+            focusedField.keyPressed(event);
+            return true;
+        }
         return super.keyPressed(event);
     }
 
-    private void submitOutputRate() {
-        try {
-            String value = this.outputRateField.getValue().trim().toLowerCase(java.util.Locale.ROOT)
-                    .replace(" ", "");
-            long amount;
-            if (value.endsWith("mb")) {
-                amount = new BigDecimal(value.substring(0, value.length() - 2)).longValueExact();
-            } else if (value.endsWith("b")) {
-                amount = new BigDecimal(value.substring(0, value.length() - 1))
-                        .multiply(BigDecimal.valueOf(1_000)).longValueExact();
-            } else {
-                // Unitless values are interpreted as Forge millibuckets.
-                amount = new BigDecimal(value).longValueExact();
-            }
-            if (amount < 1 || amount > com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity.MAX_OUTPUT_RATE_MB) {
-                throw new ArithmeticException("rate outside allowed range");
-            }
-            ClientRateRequestSender.send(this.menu.containerId, true, amount);
-        } catch (NumberFormatException | ArithmeticException exception) {
-            this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
-                    "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_fluid")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+    private EditBox focusedInputField() {
+        if (this.editingField != null && this.editingField.isVisible()) {
+            this.editingField.setFocused(true);
+            return this.editingField;
         }
+        if (this.outputRateField != null && this.outputRateField.isVisible()
+                && this.outputRateField.isFocused()) {
+            return this.outputRateField;
+        }
+        for (EditBox field : this.sideRateFields) {
+            if (field.isVisible() && field.isFocused()) {
+                return field;
+            }
+        }
+        if (this.pulseOnField != null && this.pulseOnField.isVisible()
+                && this.pulseOnField.isFocused()) {
+            return this.pulseOnField;
+        }
+        if (this.pulseOffField != null && this.pulseOffField.isVisible()
+                && this.pulseOffField.isFocused()) {
+            return this.pulseOffField;
+        }
+        if (this.batchSizeField != null && this.batchSizeField.isVisible()
+                && this.batchSizeField.isFocused()) {
+            return this.batchSizeField;
+        }
+        return null;
+    }
+
+    private void submitOutputRate() {
+        submitRate(this.outputRateField, -1);
+    }
+
+    private void submitSideRate(int side) {
+        submitRate(this.sideRateFields[side], side);
+    }
+
+    private void submitRate(EditBox field, int side) {
+        try {
+            long value = parseFluidAmount(field);
+            if (value < 0) throw new NumberFormatException();
+            if (!this.rateUnit.isExact(value)) {
+                field.setValue("");
+                this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+                        "gui." + InfinityWhat.MOD_ID + ".io.rate.inexact",
+                        Long.toString(this.rateUnit.ticksPerUnit()))
+                        .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+                return;
+            }
+            long perTick = this.rateUnit.toPerTick(value);
+            if (perTick > com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity.MAX_OUTPUT_RATE_MB) {
+                throw new NumberFormatException();
+            }
+            ClientRateRequestSender.send(this.menu.containerId, true, side, perTick);
+        } catch (NumberFormatException | ArithmeticException exception) {
+            field.setValue("");
+            showInvalidFluidRate();
+        }
+    }
+
+    private long parseFluidAmount(EditBox field) {
+        String value = field.getValue().trim().toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+        if (value.endsWith("mb")) {
+            return new BigDecimal(value.substring(0, value.length() - 2)).longValueExact();
+        }
+        if (value.endsWith("b")) {
+            return new BigDecimal(value.substring(0, value.length() - 1))
+                    .multiply(BigDecimal.valueOf(1_000)).longValueExact();
+        }
+        // Unitless values are interpreted as Forge millibuckets.
+        return new BigDecimal(value).longValueExact();
+    }
+
+    private void showInvalidFluidRate() {
+        this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
+                "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_fluid")
+                .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
     }
 
     public int getContainerId() {
@@ -413,24 +1254,52 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
                 SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
-    public void onOutputRateResult(boolean success, long amount) {
+    public void onOutputRateResult(int side, boolean success, long amount, RateRejectReason reason) {
+        this.refreshCooldown = 10;
+        if (side >= 0 && side < this.sideRateFields.length) {
+            EditBox field = this.sideRateFields[side];
+            if (field != this.editingField) {
+                field.setValue(success ? formatUnitRate(amount) : "");
+            }
+        } else {
+            if (this.outputRateField != this.editingField) {
+                this.outputRateField.setValue(success ? formatUnitRate(amount) : "");
+            }
+            if (success) {
+                for (EditBox field : this.sideRateFields) {
+                    if (field != this.editingField) {
+                        field.setValue(formatUnitRate(amount));
+                    }
+                }
+            }
+        }
         if (success) {
-            this.outputRateField.setValue(formatOutputRate(amount));
             this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
                     "gui." + InfinityWhat.MOD_ID + ".io.rate.saved")
                     .withStyle(style -> style.withColor(TextColor.fromRgb(0x55FF55))), false);
         } else {
-            this.outputRateField.setValue("");
-            this.minecraft.gui.hud.setOverlayMessage(Component.translatable(
-                    "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected")
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
+            this.minecraft.gui.hud.setOverlayMessage(fluidRateRejectMessage(reason)
+                    .copy().withStyle(style -> style.withColor(TextColor.fromRgb(0xFF5555))), false);
         }
     }
 
+    private Component fluidRateRejectMessage(RateRejectReason reason) {
+        return switch (reason) {
+            case LIMIT_SIDE -> Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".io.rate.limit_side",
+                    formatUnitRate(InfinityWhatConfig.maxFluidRatePerSideMb()) + this.rateUnit.suffix());
+            case LIMIT_TOTAL -> Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".io.rate.limit_total",
+                    formatUnitRate(InfinityWhatConfig.maxFluidTotalRateMb()) + this.rateUnit.suffix());
+            case INVALID -> Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".io.rate.invalid_fluid");
+            default -> Component.translatable(
+                    "gui." + InfinityWhat.MOD_ID + ".io.rate.rejected");
+        };
+    }
+
     private void returnToMainPage() {
-        this.ioPage = false;
-        this.outputRateField.setVisible(false);
-        this.outputRateField.setFocused(false);
+        setPage(GeneratorPage.MAIN, -1);
     }
 
     private boolean isOverTank(double mouseX, double mouseY) {
@@ -444,25 +1313,64 @@ public class InfFluidGeneratorScreen extends AbstractContainerScreen<InfFluidGen
         int x = mouseX - this.leftPos;
         int y = mouseY - this.topPos;
         Component tooltip = null;
-        if (!this.ioPage && isInside(x, y, MAIN_CLEAR_X, MAIN_CLEAR_Y,
+        if (this.page == GeneratorPage.MAIN && isInside(x, y, MAIN_CLEAR_X, MAIN_CLEAR_Y,
                 MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.clear.tooltip");
-        } else if (!this.ioPage && isInside(x, y, MAIN_IO_X, MAIN_CLEAR_Y,
+        } else if (this.page == GeneratorPage.MAIN && isInside(x, y, MAIN_IO_X, MAIN_CLEAR_Y,
                 MAIN_BUTTON_WIDTH, MAIN_BUTTON_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.tooltip");
-        } else if (this.ioPage && isInside(x, y, IO_OUTPUT_X, IO_OUTPUT_Y,
+        } else if (this.page.isRedstone() && isInside(x, y, RS_MODE_X[0], RS_MODE_Y,
+                RS_MODE_X[RS_MODE_X.length - 1] + RS_MODE_WIDTH - RS_MODE_X[0], RS_MODE_HEIGHT)) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.mode.tooltip");
+        } else if (this.page.isRedstone()
+                && (isInside(x, y, RS_PULSE_ON_FIELD_X, RS_PULSE_ON_LABEL_Y,
+                        RS_PULSE_ON_FIELD_RIGHT - RS_PULSE_ON_FIELD_X, RS_PULSE_FIELD_HEIGHT)
+                    || isInside(x, y, RS_PULSE_OFF_FIELD_X, RS_PULSE_OFF_LABEL_Y,
+                        RS_PULSE_OFF_FIELD_RIGHT - RS_PULSE_OFF_FIELD_X, RS_PULSE_FIELD_HEIGHT))) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".redstone.pulse.tooltip");
+        } else if (this.page.isBatch() && isInside(x, y, BATCH_FIELD_X, BATCH_LABEL_Y,
+                BATCH_FIELD_RIGHT - BATCH_FIELD_X, RS_PULSE_FIELD_HEIGHT)) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".batch.tooltip");
+        } else if (isIoPage() && isInside(x, y, IO_OUTPUT_X, IO_OUTPUT_Y,
                 IO_OUTPUT_WIDTH, IO_OUTPUT_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.output.tooltip");
-        } else if (this.ioPage && isInside(x, y, IO_RATE_FIELD_X, IO_RATE_FIELD_Y,
-                IO_RATE_APPLY_X + IO_RATE_APPLY_WIDTH - IO_RATE_FIELD_X, IO_RATE_FIELD_HEIGHT)) {
+        } else if (isIoPage() && isFaceDetailPage() && isInsideRateLabel(x, y, true)) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.unit.tooltip",
+                    this.rateUnit.suffix());
+        } else if (isIoPage() && !isFaceDetailPage() && isInsideRateLabel(x, y, false)) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.unit.tooltip",
+                    this.rateUnit.suffix());
+        } else if (isIoPage() && !isFaceDetailPage() && isInside(x, y, IO_RATE_FIELD_X,
+                IO_RATE_FIELD_Y, IO_RATE_FIELD_RIGHT - IO_RATE_FIELD_X, IO_RATE_FIELD_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.rate.fluid.tooltip");
-        } else if (this.ioPage && isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y,
+        } else if (isIoPage() && isInside(x, y, IO_CLOSE_X, IO_CLOSE_Y,
                 IO_CLOSE_WIDTH, IO_CLOSE_HEIGHT)) {
             tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".fluid.io.back.tooltip");
+        } else if (isIoPage() && !isFaceDetailPage()
+                && isInside(x, y, IO_MODE_X, IO_MODE_Y, IO_MODE_WIDTH, IO_MODE_HEIGHT)) {
+            tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.mode.tooltip");
+        } else if (isIoPage() && !isFaceDetailPage() && this.advancedMode) {
+            Direction direction = getHoveredFace(x, y);
+            if (direction != null) {
+                tooltip = Component.translatable("gui." + InfinityWhat.MOD_ID + ".io.neighbor.tooltip",
+                        getNeighborName(direction), getNeighborId(direction));
+            }
         }
         if (tooltip != null) {
             graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
         }
+    }
+
+    private Direction getHoveredFace(int x, int y) {
+        for (int row = 0; row < IO_SIDE_LAYOUT.length; row++) {
+            for (int column = 0; column < IO_SIDE_LAYOUT[row].length; column++) {
+                int sideX = column == 0 ? IO_SIDE_LEFT_X : IO_SIDE_RIGHT_X;
+                if (isInside(x, y, sideX, IO_SIDE_ROW_YS[row], IO_SIDE_WIDTH, IO_SIDE_HEIGHT)) {
+                    return IO_SIDE_LAYOUT[row][column];
+                }
+            }
+        }
+        return null;
     }
 
     private boolean isHovering(int x, int y, int width, int height, int mouseX, int mouseY) {
