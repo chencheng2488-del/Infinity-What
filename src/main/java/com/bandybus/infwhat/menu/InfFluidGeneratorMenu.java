@@ -1,0 +1,300 @@
+package com.bandybus.infwhat.menu;
+
+import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
+import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
+import net.minecraft.core.Direction;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Container menu for the Infinity Fluid Generator. There are no item slots for the machine
+ * itself, only the player inventory; the fluid is read straight from the block entity, which
+ * is kept in sync with the client through the block entity update packet.
+ *
+ * 1.16.5 Fabric has no container-item fluid API, so the tank slot is handled manually with
+ * vanilla water/lava buckets.
+ */
+public class InfFluidGeneratorMenu extends AbstractContainerMenu {
+
+    // Fluid tank geometry inside the GUI, also used by the screen.
+    public static final int TANK_X = 26;
+    public static final int TANK_Y = 23;
+    public static final int TANK_WIDTH = 16;
+    public static final int TANK_HEIGHT = 40;
+
+    public static final int BUTTON_TOGGLE_OUTPUT = 0;
+    public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
+    public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
+
+    private static final int PLAYER_SLOTS = 27;
+    private static final int HOTBAR_SLOTS = 9;
+    private static final long BUCKET_MB = 1_000L;
+
+    /** Index of the tank slot inside {@link #slots}; it is added after the 36 player slots. */
+    public static final int FLUID_SLOT_INDEX = PLAYER_SLOTS + HOTBAR_SLOTS;
+
+    private final InfFluidGeneratorBlockEntity blockEntity;
+    private final Level level;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
+
+    // Client constructor: receives the block pos written by writeScreenOpeningData.
+    public InfFluidGeneratorMenu(int containerId, Inventory playerInventory, FriendlyByteBuf data) {
+        this(containerId, playerInventory,
+                playerInventory.player.level.getBlockEntity(data.readBlockPos()));
+    }
+
+    // Server constructor.
+    public InfFluidGeneratorMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity) {
+        // 1.15.2 Fabric registers containers by id, not MenuType; null is the legacy convention.
+        super(null, containerId);
+        this.blockEntity = (InfFluidGeneratorBlockEntity) blockEntity;
+        this.level = playerInventory.player.level;
+
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 9; ++col) {
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
+            }
+        }
+        for (int col = 0; col < 9; ++col) {
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
+        }
+
+        // Display-only slot over the tank. It never stores items; bucket interactions are
+        // handled in clicked(...) so a fluid container on the cursor can be used directly.
+        // This synthetic slot is deliberately inactive and offscreen: the screen routes clicks
+        // over the larger visible tank area here, but vanilla must not draw a 16x16 hover overlay.
+        this.addSlot(new FluidSlot(-100, -100));
+    }
+
+    /** Hides the player inventory while a face detail / redstone / batch page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
+    }
+
+    /**
+     * Direct bucket interaction with the tank slot: while the GUI is open, a vanilla bucket on
+     * the cursor can be exchanged with the tank. Without an open GUI the block only supports
+     * the GUI, because this branch has no generic fluid handler.
+     */
+    @Override
+    public ItemStack clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (slotId == FLUID_SLOT_INDEX && clickType == ClickType.PICKUP && (button == 0 || button == 1)) {
+            // The client also calls clicked() locally, so only the authoritative server side
+            // performs the transfer; the result reaches the client through the normal sync.
+            if (!player.level.isClientSide) {
+                handleFluidContainer(player);
+            }
+            return ItemStack.EMPTY;
+        }
+        return super.clicked(slotId, button, clickType, player);
+    }
+
+    private void handleFluidContainer(Player player) {
+        ItemStack carried = player.inventory.getCarried();
+        if (carried.isEmpty()) {
+            return;
+        }
+        if (carried.getItem() == Items.BUCKET) {
+            if (this.blockEntity.getStoredFluid() == Fluids.EMPTY
+                    || this.blockEntity.getStoredAmount() < BUCKET_MB) {
+                return;
+            }
+            Item bucket = this.blockEntity.getStoredFluid().getBucket();
+            if (bucket == Items.AIR || bucket == Items.BUCKET) {
+                return;
+            }
+            this.blockEntity.extractFluid(BUCKET_MB);
+            player.inventory.setCarried(new ItemStack(bucket));
+            this.broadcastChanges();
+            return;
+        }
+        Fluid fluid = bucketFluid(carried.getItem());
+        if (fluid == Fluids.EMPTY) {
+            return;
+        }
+        if (this.blockEntity.insertFluid(fluid, BUCKET_MB) > 0L) {
+            player.inventory.setCarried(new ItemStack(Items.BUCKET));
+            this.broadcastChanges();
+        }
+    }
+
+    /** Vanilla 1.16.5 only has water and lava as fluid buckets. */
+    private static Fluid bucketFluid(Item item) {
+        if (item == Items.WATER_BUCKET) {
+            return Fluids.WATER;
+        }
+        if (item == Items.LAVA_BUCKET) {
+            return Fluids.LAVA;
+        }
+        return Fluids.EMPTY;
+    }
+
+    /** Inactive menu target used only by explicit bucket clicks routed from the screen. */
+    private static class FluidSlot extends Slot {
+        FluidSlot(int x, int y) {
+            super(new SimpleContainer(1), 0, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return false;
+        }
+
+        @Override
+        public boolean isActive() {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return stillValid(
+                ContainerLevelAccess.create(this.level, this.blockEntity.getBlockPos()),
+                player,
+                ModBlocks.INF_FLUID_GENERATOR);
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
+        Slot slot = this.slots.get(index);
+        if (!slot.hasItem()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = slot.getItem();
+        ItemStack copy = stack.copy();
+
+        if (index < PLAYER_SLOTS) {
+            if (!this.moveItemStackTo(stack, PLAYER_SLOTS, PLAYER_SLOTS + HOTBAR_SLOTS, false)) {
+                return ItemStack.EMPTY;
+            }
+        } else {
+            if (!this.moveItemStackTo(stack, 0, PLAYER_SLOTS, false)) {
+                return ItemStack.EMPTY;
+            }
+        }
+
+        if (stack.isEmpty()) {
+            slot.set(ItemStack.EMPTY);
+        } else {
+            slot.setChanged();
+        }
+        return copy;
+    }
+
+    public InfFluidGeneratorBlockEntity getBlockEntity() {
+        return this.blockEntity;
+    }
+
+    public Fluid getStoredFluid() {
+        return this.blockEntity.getStoredFluid();
+    }
+
+    public boolean isInfinite() {
+        return this.blockEntity.isInfinite();
+    }
+
+    /** Display amount in millibuckets; {@link Long#MAX_VALUE} while infinite. */
+    public long getAmount() {
+        return this.blockEntity.getStoredAmount();
+    }
+
+    public boolean isOutputEnabled() {
+        return this.blockEntity.isOutputEnabled();
+    }
+
+    public long getSideRateMb(Direction direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
+    public boolean isOutputSideEnabled(Direction direction) {
+        return this.blockEntity.isOutputSideEnabled(direction);
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public float getFillRatio() {
+        return this.blockEntity.getFillRatio();
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int buttonId) {
+        if (player.level.isClientSide) {
+            return true;
+        }
+        if (buttonId == BUTTON_TOGGLE_OUTPUT) {
+            this.blockEntity.setOutputEnabled(!this.blockEntity.isOutputEnabled());
+            return true;
+        }
+        if (buttonId == BUTTON_CLEAR_FLUID) {
+            this.blockEntity.clearFluid();
+            return true;
+        }
+        int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
+        if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
+            this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
+            return true;
+        }
+        return false;
+    }
+}
