@@ -21,7 +21,7 @@ repositories {
 }
 
 base {
-    archivesName = "infinity_what-" + project.minecraft_version + "-forge"
+    archivesName = "infwhat-" + project.minecraft_version + "-forge"
 }
 
 // Mojang ships Java 17 to end users in 1.20.1, so mods should target Java 17.
