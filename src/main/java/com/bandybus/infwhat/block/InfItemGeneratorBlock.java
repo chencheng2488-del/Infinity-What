@@ -1,0 +1,121 @@
+package com.bandybus.infwhat.block;
+
+import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
+import com.mojang.serialization.MapCodec;
+import com.bandybus.infwhat.block.entity.ModBlockEntities;
+import com.bandybus.infwhat.item.ModItems;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+
+/**
+ * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
+ * opens a small UI, while every side exposes an item storage so pipe mods can pull from it. The
+ * server tick handles only the explicitly configured active output; redstone does not affect
+ * this block.
+ */
+public class InfItemGeneratorBlock extends BaseEntityBlock {
+
+    public InfItemGeneratorBlock(Properties properties) {
+        super(properties);
+    }
+
+    @Override
+    public MapCodec<InfItemGeneratorBlock> codec() {
+        return simpleCodec(InfItemGeneratorBlock::new);
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new InfItemGeneratorBlockEntity(pos, state);
+    }
+
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
+                                                                  BlockEntityType<T> blockEntityType) {
+        if (level.isClientSide) {
+            return null;
+        }
+        return createTickerHelper(blockEntityType, ModBlockEntities.INF_ITEM_GENERATOR,
+                InfItemGeneratorBlockEntity::serverTick);
+    }
+
+    @Override
+    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof MenuProvider provider ? provider : null;
+    }
+
+    @Override
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                 InteractionHand hand, BlockHitResult hit) {
+        if (player.getItemInHand(hand).is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR)) {
+            return InteractionResult.PASS;
+        }
+        if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof InfItemGeneratorBlockEntity generator) {
+                serverPlayer.openMenu(generator);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfItemGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, fromPos, isMoving);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
+    }
+
+    /**
+     * Drops the template item that is currently stored in the generator when a player breaks the
+     * block, so it is never silently deleted. The item is locked while infinite mode is enabled,
+     * and this hook restores it either way.
+     */
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof InfItemGeneratorBlockEntity generator) {
+                ItemStack stored = generator.getStoredItem();
+                if (!stored.isEmpty()) {
+                    popResource(level, pos, stored.copy());
+                }
+            }
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+}
