@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.item;
 
+import com.bandybus.infwhat.integration.thaumcraft4.ThaumcraftIntegration;
 import cpw.mods.fml.common.registry.GameRegistry;
 
 /** Standalone item registration for the 1.7.10 Forge release. */
@@ -20,6 +21,8 @@ public final class ModItems {
     public static void register() {
         GameRegistry.registerItem(INFINITE_SOURCE_CONFIG_REPLICATOR,
                 "infinite_source_config_replicator");
-        GameRegistry.registerItem(ARCANE_ORD_RECORD_SHARD, "arcane_ord_record_shard");
+        if (ThaumcraftIntegration.isActive()) {
+            GameRegistry.registerItem(ARCANE_ORD_RECORD_SHARD, "arcane_ord_record_shard");
+        }
     }
 }

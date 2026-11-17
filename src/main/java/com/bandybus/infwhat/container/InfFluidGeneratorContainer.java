@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.container;
 
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorTileEntity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -15,6 +16,9 @@ import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.IFluidContainerItem;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Container menu for the Infinity Fluid Generator. The machine has no item slots; a synthetic
  * off-screen slot is only the click target for bucket interactions with the tank.
@@ -25,29 +29,23 @@ import net.minecraftforge.fluids.IFluidContainerItem;
  */
 public class InfFluidGeneratorContainer extends Container {
 
-    /** Tank overlay origin on the GUI texture. */
     public static final int TANK_X = 26;
-    /** Tank overlay origin on the GUI texture. */
     public static final int TANK_Y = 23;
-    /** Tank overlay width in pixels. */
     public static final int TANK_WIDTH = 16;
-    /** Tank overlay height in pixels. */
     public static final int TANK_HEIGHT = 40;
 
-    /** Button id that toggles active output. */
     public static final int BUTTON_TOGGLE_OUTPUT = 0;
-    /** Button id of the first face toggle; the six faces follow in ForgeDirection order. */
     public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
-    /** Button id that empties the tank immediately. */
     public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private static final int PLAYER_SLOTS = 27;
     private static final int HOTBAR_SLOTS = 9;
-    /** Index of the synthetic off-screen slot used for tank clicks. */
     public static final int FLUID_SLOT_INDEX = PLAYER_SLOTS + HOTBAR_SLOTS;
 
     private final InfFluidGeneratorTileEntity blockEntity;
     private final net.minecraft.world.World world;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     public InfFluidGeneratorContainer(InventoryPlayer playerInventory,
                                       InfFluidGeneratorTileEntity tile) {
@@ -56,25 +54,85 @@ public class InfFluidGeneratorContainer extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlotToContainer(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlotToContainer(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlotToContainer(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlotToContainer(slot);
         }
 
         this.addSlotToContainer(new FluidSyntheticSlot(-100, -100));
     }
 
-    /** Machine tile entity backing this menu. */
     public InfFluidGeneratorTileEntity getTileEntity() {
         return this.blockEntity;
     }
 
-    /** Whether active output pushes toward the given face. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
+    }
+
+    public FluidStack getFluidStack() {
+        return this.blockEntity.getStoredFluid();
+    }
+
+    public boolean isInfinite() {
+        return this.blockEntity.isInfinite();
+    }
+
+    public long getAmount() {
+        return this.blockEntity.getStoredAmount();
+    }
+
+    public boolean isOutputEnabled() {
+        return this.blockEntity.isOutputEnabled();
+    }
+
+    public long getSideRateMb(ForgeDirection direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
     public boolean isOutputSideEnabled(ForgeDirection direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public float getFillRatio() {
+        return this.blockEntity.getFillRatio();
     }
 
     @Override
@@ -150,7 +208,6 @@ public class InfFluidGeneratorContainer extends Container {
         }
     }
 
-    /** Moves a filled container into the tank and returns the emptied container. */
     private ItemStack fillTankFromContainer(ItemStack carried) {
         FluidStack contained = FluidContainerRegistry.getFluidForFilledItem(carried);
         if (contained == null || contained.amount <= 0) {
@@ -167,7 +224,6 @@ public class InfFluidGeneratorContainer extends Container {
         return emptied;
     }
 
-    /** Resolves the empty container that matches a filled one. */
     private static ItemStack emptyContainerOf(ItemStack filled) {
         if (filled.getItem() instanceof ItemBucket) {
             return new ItemStack(Items.bucket);
@@ -184,7 +240,6 @@ public class InfFluidGeneratorContainer extends Container {
         return null;
     }
 
-    /** Moves fluid from the tank into an empty container and returns the filled container. */
     private ItemStack fillContainerFromTank(ItemStack carried) {
         FluidStack available = this.blockEntity.drain(ForgeDirection.UP, Integer.MAX_VALUE, false);
         if (available == null || available.amount <= 0) {
@@ -230,13 +285,14 @@ public class InfFluidGeneratorContainer extends Container {
             this.blockEntity.toggleOutputSide(ForgeDirection.VALID_DIRECTIONS[sideDataValue]);
             return true;
         }
+        int redstoneMode = id - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
+            return true;
+        }
         return false;
     }
 
-    /**
-     * Off-screen slot that only serves as a click target for tank interactions; it never stores or
-     * hands out items.
-     */
     private static final class FluidSyntheticSlot extends Slot {
 
         FluidSyntheticSlot(int x, int y) {

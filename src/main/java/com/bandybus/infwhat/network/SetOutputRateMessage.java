@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.network;
 
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorTileEntity;
+import com.bandybus.infwhat.block.entity.InfItemGeneratorTileEntity;
 import com.bandybus.infwhat.container.InfFluidGeneratorContainer;
 import com.bandybus.infwhat.container.InfItemGeneratorContainer;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -9,26 +10,23 @@ import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
+import net.minecraftforge.common.util.ForgeDirection;
 
-/**
- * Sent from the client to the server to set a new per-tick output rate.
- *
- * <p>1.7.10 has no server-side scheduled-task API, so the handler applies the change immediately
- * and answers with {@link OutputRateResultMessage}; every value it writes is a plain primitive on
- * the machine tile entity, which is safe to update from the network thread.
- */
+/** Sent from the client to the server to set one side's output rate, or all six with side -1. */
 public final class SetOutputRateMessage implements IMessage {
 
     private int windowId;
     private boolean fluidGenerator;
+    private int side;
     private long amount;
 
     public SetOutputRateMessage() {
     }
 
-    public SetOutputRateMessage(int windowId, boolean fluidGenerator, long amount) {
+    public SetOutputRateMessage(int windowId, boolean fluidGenerator, int side, long amount) {
         this.windowId = windowId;
         this.fluidGenerator = fluidGenerator;
+        this.side = side;
         this.amount = amount;
     }
 
@@ -36,6 +34,7 @@ public final class SetOutputRateMessage implements IMessage {
     public void fromBytes(ByteBuf buf) {
         this.windowId = buf.readInt();
         this.fluidGenerator = buf.readBoolean();
+        this.side = buf.readByte();
         this.amount = buf.readLong();
     }
 
@@ -43,10 +42,14 @@ public final class SetOutputRateMessage implements IMessage {
     public void toBytes(ByteBuf buf) {
         buf.writeInt(this.windowId);
         buf.writeBoolean(this.fluidGenerator);
+        buf.writeByte(this.side);
         buf.writeLong(this.amount);
     }
 
-    /** Server-side handler that validates and stores the requested rate. */
+    /**
+     * 1.7.10 has no server-side scheduled-task API, so the handler applies the change immediately
+     * and answers with {@link OutputRateResultMessage}.
+     */
     public static final class Handler implements IMessageHandler<SetOutputRateMessage, IMessage> {
 
         @Override
@@ -55,32 +58,61 @@ public final class SetOutputRateMessage implements IMessage {
             if (player == null) {
                 return null;
             }
-
-            Container menu = player.openContainer;
             boolean success = false;
             long acceptedAmount = 0L;
+            RateRejectReason reason = RateRejectReason.REJECTED;
+            boolean validSide = message.side >= -1
+                    && message.side < ForgeDirection.VALID_DIRECTIONS.length;
 
-            if (menu != null && message.windowId == menu.windowId && menu.canInteractWith(player)) {
+            if (validSide && ModNetworking.validMenu(player, message.windowId)) {
+                Container menu = player.openContainer;
                 if (message.fluidGenerator && menu instanceof InfFluidGeneratorContainer) {
-                    InfFluidGeneratorContainer fluidMenu = (InfFluidGeneratorContainer) menu;
-                    if (message.amount >= 1L
-                            && message.amount <= InfFluidGeneratorTileEntity.MAX_OUTPUT_RATE_MB) {
-                        fluidMenu.getTileEntity().setOutputAmountPerTick(message.amount);
-                        acceptedAmount = fluidMenu.getTileEntity().getOutputAmountPerTick();
-                        success = true;
+                    InfFluidGeneratorTileEntity tile =
+                            ((InfFluidGeneratorContainer) menu).getTileEntity();
+                    reason = ModNetworking.fluidRejectReason(tile, message.side, message.amount);
+                    if (reason == RateRejectReason.NONE) {
+                        if (message.side < 0) {
+                            success = tile.setUniformSideRateMb(message.amount);
+                        } else {
+                            success = tile.setSideRateMb(
+                                    ForgeDirection.VALID_DIRECTIONS[message.side], message.amount);
+                        }
+                        if (success) {
+                            acceptedAmount = message.side < 0
+                                    ? tile.getUniformSideRateMb()
+                                    : tile.getSideRateMb(
+                                            ForgeDirection.VALID_DIRECTIONS[message.side]);
+                        } else {
+                            reason = RateRejectReason.REJECTED;
+                        }
                     }
                 } else if (!message.fluidGenerator && menu instanceof InfItemGeneratorContainer) {
-                    InfItemGeneratorContainer itemMenu = (InfItemGeneratorContainer) menu;
-                    if (message.amount >= 1L && message.amount <= Integer.MAX_VALUE) {
-                        itemMenu.getTileEntity().setOutputItemsPerTick((int) message.amount);
-                        acceptedAmount = itemMenu.getTileEntity().getOutputItemsPerTick();
-                        success = true;
+                    InfItemGeneratorTileEntity tile =
+                            ((InfItemGeneratorContainer) menu).getTileEntity();
+                    reason = ModNetworking.itemRejectReason(tile, message.side, message.amount);
+                    if (reason == RateRejectReason.NONE) {
+                        if (message.side < 0) {
+                            success = tile.setUniformSideRate((int) message.amount);
+                        } else {
+                            success = tile.setSideRate(
+                                    ForgeDirection.VALID_DIRECTIONS[message.side],
+                                    (int) message.amount);
+                        }
+                        if (success) {
+                            acceptedAmount = message.side < 0
+                                    ? tile.getUniformSideRate()
+                                    : tile.getSideRate(
+                                            ForgeDirection.VALID_DIRECTIONS[message.side]);
+                        } else {
+                            reason = RateRejectReason.REJECTED;
+                        }
                     }
                 }
             }
 
             ModNetworking.channel().sendTo(new OutputRateResultMessage(message.windowId,
-                    message.fluidGenerator, success, acceptedAmount), player);
+                    message.fluidGenerator, message.side, success, acceptedAmount,
+                    reason.ordinal()), player);
             return null;
         }
     }

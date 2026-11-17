@@ -40,7 +40,7 @@ public class InfinityWhat {
     public static final String NAME = "Infinity What";
 
     /** Mod version. */
-    public static final String VERSION = "2.1.1";
+    public static final String VERSION = "2.2.0";
 
     /** Shared logger; 1.7.10 already ships log4j 2. */
     public static final Logger LOGGER = LogManager.getLogger(MODID);

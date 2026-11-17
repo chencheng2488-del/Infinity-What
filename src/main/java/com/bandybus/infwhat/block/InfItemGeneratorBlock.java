@@ -67,4 +67,26 @@ public class InfItemGeneratorBlock extends BlockContainer {
         }
         super.breakBlock(worldIn, x, y, z, block, meta);
     }
+
+    @Override
+    public boolean hasComparatorInputOverride() {
+        return true;
+    }
+
+    @Override
+    public int getComparatorInputOverride(World worldIn, int x, int y, int z, int side) {
+        TileEntity tileEntity = worldIn.getTileEntity(x, y, z);
+        return tileEntity instanceof InfItemGeneratorTileEntity
+                ? ((InfItemGeneratorTileEntity) tileEntity).getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void onNeighborBlockChange(World worldIn, int x, int y, int z, Block neighborBlock) {
+        super.onNeighborBlockChange(worldIn, x, y, z, neighborBlock);
+        if (!worldIn.isRemote && worldIn.getTileEntity(x, y, z)
+                instanceof InfItemGeneratorTileEntity) {
+            ((InfItemGeneratorTileEntity) worldIn.getTileEntity(x, y, z)).wakeOutput();
+        }
+    }
 }
