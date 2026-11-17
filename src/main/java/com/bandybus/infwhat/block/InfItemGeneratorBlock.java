@@ -6,11 +6,11 @@ import com.bandybus.infwhat.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
  * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
  * opens a small UI, while every side exposes a Forge {@code IItemHandler} capability so pipe
  * mods can pull from it. The server tick handles only the explicitly configured active output;
- * redstone does not affect this block.
+ * redstone gates that output through the GUI-selected mode.
  */
 public class InfItemGeneratorBlock extends BaseEntityBlock {
     public static final MapCodec<InfItemGeneratorBlock> CODEC = simpleCodec(InfItemGeneratorBlock::new);
@@ -61,11 +61,26 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
                 InfItemGeneratorBlockEntity::serverTick);
     }
 
-    @Nullable
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
     @Override
-    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, fromPos, isMoving);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
-        return blockEntity instanceof MenuProvider provider ? provider : null;
+        return blockEntity instanceof InfItemGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
     }
 
     @Override
