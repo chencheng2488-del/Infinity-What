@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "description": {
+      "text": "${mod_name} resources"
+    },
+    "pack_format": 69,
+    "supported_formats": [69, 69]
+  }
+}
+
