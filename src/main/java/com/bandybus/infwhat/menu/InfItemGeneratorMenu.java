@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
@@ -14,6 +15,9 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
@@ -37,10 +41,12 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorBlockEntity blockEntity;
     private final Level level;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
 
     // Client constructor: receives the block pos written by writeScreenOpeningData.
     public InfItemGeneratorMenu(int containerId, Inventory playerInventory, FriendlyByteBuf data) {
@@ -56,12 +62,16 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         this.generatorSlot = new GeneratorSlot(this.blockEntity, SLOT_X, SLOT_Y);
@@ -208,17 +218,52 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         return this.blockEntity.isOutputEnabled();
     }
 
-    public int getOutputItemsPerTick() {
-        return this.blockEntity.getOutputItemsPerTick();
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(Direction direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
     }
 
     public boolean isOutputSideEnabled(Direction direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
     /** Hides the stored item slot while the screen displays its separate I/O settings page. */
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail / redstone / batch page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -239,6 +284,11 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;

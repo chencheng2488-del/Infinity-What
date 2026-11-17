@@ -5,6 +5,7 @@ import com.bandybus.infwhat.client.screen.InfFluidGeneratorScreen;
 import com.bandybus.infwhat.client.screen.InfItemGeneratorScreen;
 import com.bandybus.infwhat.menu.ModMenuTypes;
 import com.bandybus.infwhat.network.ModNetworking;
+import com.bandybus.infwhat.network.RateRejectReason;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -21,10 +22,13 @@ public class ModClientEvents implements ClientModInitializer {
                 (client, handler, buffer, responseSender) -> {
                     int containerId = buffer.readVarInt();
                     boolean fluidGenerator = buffer.readBoolean();
+                    int side = buffer.readByte();
                     boolean success = buffer.readBoolean();
                     long amount = buffer.readLong();
+                    int reason = buffer.readByte();
                     client.execute(() -> ClientRateResultHandler.handle(containerId,
-                            fluidGenerator, success, amount));
+                            fluidGenerator, side, success, amount,
+                            RateRejectReason.byId(reason)));
                 });
     }
 }
