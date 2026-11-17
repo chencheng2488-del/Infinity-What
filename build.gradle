@@ -1,0 +1,27 @@
+/*
+ * Minecraft 1.6.4 has no usable ForgeGradle: ForgeGradle 1.2 cannot resolve 1.6.4 mappings, and
+ * the ForgeGradle 1.0 / Unimined routes fail on this machine (missing userdev package, Windows
+ * file locks during jar processing). The canonical build is therefore the manual MCP +
+ * SpecialSource pipeline implemented in build/build-164.ps1.
+ *
+ * This build file keeps `gradlew build` working by delegating to that script. The script performs:
+ *   1. javac against the MCP-named 1.6.4 client jar and the MCP-named Forge universal jar
+ *   2. a dev jar with the resources
+ *   3. a fat jar (Minecraft + Forge + mod) so SpecialSource can resolve inherited members
+ *   4. reobfuscation with libs/mcp-to-srg.srg (MCP classes, SRG member names)
+ *   5. the final mod jar in build/libs
+ */
+defaultTasks 'build'
+
+task build164(type: Exec) {
+    group = 'build'
+    description = 'Builds the reobfuscated 1.6.4 mod jar with the manual MCP + SpecialSource pipeline.'
+    workingDir projectDir
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+            '-File', 'build/build-164.ps1'
+}
+
+task build(dependsOn: 'build164') {
+    group = 'build'
+    description = 'Alias for build164.'
+}
