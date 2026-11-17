@@ -40,6 +40,10 @@ public class InfinityWhatConfig {
 
     private static final String FILE_NAME = "infwhat.toml";
     private static final int DEFAULT_FINITE_CAPACITY = 16000;
+    private static final long DEFAULT_MAX_ITEM_RATE_PER_SIDE = Integer.MAX_VALUE;
+    private static final long DEFAULT_MAX_ITEM_TOTAL_RATE = (long) Integer.MAX_VALUE * 6L;
+    private static final long DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB = (long) Integer.MAX_VALUE * 1_000L;
+    private static final long DEFAULT_MAX_FLUID_TOTAL_RATE_MB = (long) Integer.MAX_VALUE * 1_000L * 6L;
 
     private static final String DEFAULT_FILE = """
             # Infinity What configuration.
@@ -52,6 +56,16 @@ public class InfinityWhatConfig {
             enableInfiniteSource = true
             # Capacity in mB used when enableInfiniteSource is false.
             finiteTankCapacity = 16000
+
+            [limits]
+            # Maximum item rate per side, in items per tick.
+            maxItemRatePerSide = 2147483647
+            # Maximum total item rate, in items per tick.
+            maxItemTotalRate = 12884901882
+            # Maximum fluid rate per side, in mB per tick.
+            maxFluidRatePerSideMb = 2147483647000
+            # Maximum total fluid rate, in mB per tick.
+            maxFluidTotalRateMb = 12884901882000
 
             [item_filter]
             # BLACKLIST: listed item ids can never be inserted.
@@ -72,6 +86,10 @@ public class InfinityWhatConfig {
 
     private static boolean enableInfiniteSource = true;
     private static int finiteTankCapacity = DEFAULT_FINITE_CAPACITY;
+    private static long maxItemRatePerSide = DEFAULT_MAX_ITEM_RATE_PER_SIDE;
+    private static long maxItemTotalRate = DEFAULT_MAX_ITEM_TOTAL_RATE;
+    private static long maxFluidRatePerSideMb = DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB;
+    private static long maxFluidTotalRateMb = DEFAULT_MAX_FLUID_TOTAL_RATE_MB;
     private static FilterMode itemFilterMode = FilterMode.BLACKLIST;
     private static List<String> itemFilterList = List.of();
     private static FilterMode fluidFilterMode = FilterMode.BLACKLIST;
@@ -83,6 +101,22 @@ public class InfinityWhatConfig {
 
     public static int finiteCapacity() {
         return finiteTankCapacity;
+    }
+
+    public static long maxItemRatePerSide() {
+        return maxItemRatePerSide;
+    }
+
+    public static long maxItemTotalRate() {
+        return maxItemTotalRate;
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return maxFluidRatePerSideMb;
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return maxFluidTotalRateMb;
     }
 
     /** Whether the given item id may be inserted into the item generator. */
@@ -168,6 +202,21 @@ public class InfinityWhatConfig {
                     fluidFilterList = parseList(value);
                 }
             }
+            case "limits" -> {
+                if (key.equals("maxitemrateperside")) {
+                    maxItemRatePerSide = parseLong(value, DEFAULT_MAX_ITEM_RATE_PER_SIDE, 1L,
+                            (long) Integer.MAX_VALUE);
+                } else if (key.equals("maxitemtotalrate")) {
+                    maxItemTotalRate = parseLong(value, DEFAULT_MAX_ITEM_TOTAL_RATE, 1L,
+                            Long.MAX_VALUE);
+                } else if (key.equals("maxfluidratepersidemb")) {
+                    maxFluidRatePerSideMb = parseLong(value, DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB, 1L,
+                            (long) Integer.MAX_VALUE * 1_000L);
+                } else if (key.equals("maxfluidtotalratemb")) {
+                    maxFluidTotalRateMb = parseLong(value, DEFAULT_MAX_FLUID_TOTAL_RATE_MB, 1L,
+                            Long.MAX_VALUE);
+                }
+            }
             default -> {
             }
         }
@@ -193,6 +242,15 @@ public class InfinityWhatConfig {
             return parsed >= 1 ? parsed : DEFAULT_FINITE_CAPACITY;
         } catch (NumberFormatException exception) {
             return DEFAULT_FINITE_CAPACITY;
+        }
+    }
+
+    private static long parseLong(String value, long fallback, long min, long max) {
+        try {
+            long parsed = Long.parseLong(value.trim());
+            return Math.max(min, Math.min(max, parsed));
+        } catch (NumberFormatException exception) {
+            return fallback;
         }
     }
 
