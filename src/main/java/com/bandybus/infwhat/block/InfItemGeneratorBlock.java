@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -60,6 +61,28 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
     public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         return blockEntity instanceof MenuProvider provider ? provider : null;
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, fromPos, isMoving);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity) {
+            ((InfItemGeneratorBlockEntity) level.getBlockEntity(pos)).wakeOutput();
+        }
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfItemGeneratorBlockEntity
+                ? ((InfItemGeneratorBlockEntity) blockEntity).getComparatorOutput() : 0;
     }
 
     @Override
