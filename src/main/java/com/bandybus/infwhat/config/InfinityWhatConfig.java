@@ -53,6 +53,16 @@ public class InfinityWhatConfig {
             # Capacity in mB used when enableInfiniteSource is false.
             finiteTankCapacity = 16000
 
+            [limits]
+            # Maximum item rate per side, in items per tick.
+            maxItemRatePerSide = 2147483647
+            # Maximum total item rate, in items per tick.
+            maxItemTotalRate = 12884901882
+            # Maximum fluid rate per side, in mB per tick.
+            maxFluidRatePerSideMb = 2147483647000
+            # Maximum total fluid rate, in mB per tick.
+            maxFluidTotalRateMb = 12884901882000
+
             [item_filter]
             # BLACKLIST: listed item ids can never be inserted.
             # WHITELIST: only listed item ids can be inserted.
@@ -72,6 +82,10 @@ public class InfinityWhatConfig {
 
     private static boolean enableInfiniteSource = true;
     private static int finiteTankCapacity = DEFAULT_FINITE_CAPACITY;
+    private static long maxItemRatePerSide = Integer.MAX_VALUE;
+    private static long maxItemTotalRate = (long) Integer.MAX_VALUE * 6L;
+    private static long maxFluidRatePerSideMb = (long) Integer.MAX_VALUE * 1_000L;
+    private static long maxFluidTotalRateMb = (long) Integer.MAX_VALUE * 1_000L * 6L;
     private static FilterMode itemFilterMode = FilterMode.BLACKLIST;
     private static List<String> itemFilterList = List.of();
     private static FilterMode fluidFilterMode = FilterMode.BLACKLIST;
@@ -83,6 +97,22 @@ public class InfinityWhatConfig {
 
     public static int finiteCapacity() {
         return finiteTankCapacity;
+    }
+
+    public static long maxItemRatePerSide() {
+        return maxItemRatePerSide;
+    }
+
+    public static long maxItemTotalRate() {
+        return maxItemTotalRate;
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return maxFluidRatePerSideMb;
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return maxFluidTotalRateMb;
     }
 
     /** Whether the given item id may be inserted into the item generator. */
@@ -154,6 +184,18 @@ public class InfinityWhatConfig {
                     finiteTankCapacity = parseCapacity(value);
                 }
             }
+            case "limits" -> {
+                if (key.equals("maxitemrateperside")) {
+                    maxItemRatePerSide = parseLimit(value, (long) Integer.MAX_VALUE);
+                } else if (key.equals("maxitemtotalrate")) {
+                    maxItemTotalRate = parseLimit(value, (long) Integer.MAX_VALUE * 6L);
+                } else if (key.equals("maxfluidratepersidemb")) {
+                    maxFluidRatePerSideMb = parseLimit(value, (long) Integer.MAX_VALUE * 1_000L);
+                } else if (key.equals("maxfluidtotalratemb")) {
+                    maxFluidTotalRateMb = parseLimit(value,
+                            (long) Integer.MAX_VALUE * 1_000L * 6L);
+                }
+            }
             case "item_filter" -> {
                 if (key.equals("mode")) {
                     itemFilterMode = parseMode(value, FilterMode.BLACKLIST);
@@ -193,6 +235,15 @@ public class InfinityWhatConfig {
             return parsed >= 1 ? parsed : DEFAULT_FINITE_CAPACITY;
         } catch (NumberFormatException exception) {
             return DEFAULT_FINITE_CAPACITY;
+        }
+    }
+
+    private static long parseLimit(String value, long fallback) {
+        try {
+            long parsed = Long.parseLong(value.trim());
+            return parsed >= 1L ? parsed : fallback;
+        } catch (NumberFormatException exception) {
+            return fallback;
         }
     }
 
