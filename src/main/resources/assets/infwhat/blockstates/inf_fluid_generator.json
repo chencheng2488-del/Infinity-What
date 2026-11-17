@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "normal": {
+      "model": "infwhat:inf_fluid_generator"
+    }
+  }
+}
