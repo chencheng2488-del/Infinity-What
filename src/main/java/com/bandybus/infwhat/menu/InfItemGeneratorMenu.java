@@ -1,13 +1,13 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -16,14 +16,15 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
  * slot. The slot always holds exactly one item; while infinite mode is enabled the item becomes
  * an infinite source. Manual retrieval is handled in {@link #clicked}: left-click gives one item,
- * shift+left-click gives a full stack, and the source is never depleted (it is the storage view,
- * not this slot, that reports the huge count to pipes/AE2).
+ * shift+left-click gives a full stack, and the source is never depleted.
  */
 public class InfItemGeneratorMenu extends AbstractContainerMenu {
 
@@ -40,79 +41,63 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorBlockEntity blockEntity;
-    private final BlockPos pos;
     private final Level level;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
 
-    // Client and server constructor: the block pos arrives through the extended screen handler data.
+    // Client and server constructor: receives the block pos written by getScreenOpeningData.
     public InfItemGeneratorMenu(int containerId, Inventory playerInventory, BlockPos pos) {
-        this(containerId, playerInventory, playerInventory.player.level().getBlockEntity(pos), pos);
-    }
-
-    private InfItemGeneratorMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity, BlockPos pos) {
         super(ModMenuTypes.INF_ITEM_GENERATOR, containerId);
-        this.blockEntity = (InfItemGeneratorBlockEntity) blockEntity;
-        this.pos = pos;
+        this.blockEntity = (InfItemGeneratorBlockEntity) playerInventory.player.level().getBlockEntity(pos);
         this.level = playerInventory.player.level();
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
-        this.generatorSlot = new GeneratorSlot(this.blockEntity, SLOT_X, SLOT_Y);
+        this.generatorSlot = new GeneratorSlot(this.blockEntity, new TemplateContainer(this.blockEntity),
+                SLOT_X, SLOT_Y);
         this.addSlot(this.generatorSlot);
     }
 
-    /** Slot backed by the generator's template item; picking the item up is blocked while infinite. */
+    /**
+     * Slot backed by the generator's template item; picking the item up is blocked while
+     * infinite. Vanilla clicks always pass through the container proxy below, so the generator
+     * keeps holding at most one template unit.
+     */
     private static class GeneratorSlot extends Slot {
         private final InfItemGeneratorBlockEntity blockEntity;
         private boolean visible = true;
 
-        GeneratorSlot(InfItemGeneratorBlockEntity blockEntity, int x, int y) {
-            super(new SimpleContainer(1), 0, x, y);
+        GeneratorSlot(InfItemGeneratorBlockEntity blockEntity, Container container, int x, int y) {
+            super(container, 0, x, y);
             this.blockEntity = blockEntity;
         }
 
         @Override
-        public ItemStack getItem() {
-            // Copy so vanilla click handling can never mutate the stored template in place.
-            return this.blockEntity.getStoredItem().copy();
-        }
-
-        @Override
-        public void set(ItemStack stack) {
-            this.blockEntity.setStoredItem(stack);
-        }
-
-        @Override
-        public void setChanged() {
-            this.blockEntity.setChanged();
-        }
-
-        @Override
-        public ItemStack remove(int amount) {
-            return this.blockEntity.removeStoredItem(amount);
-        }
-
-        @Override
         public boolean mayPickup(Player player) {
-            return !this.blockEntity.isInfinite();
+            return !this.blockEntity.isInfinite() && super.mayPickup(player);
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            // Honour the item filter even if the backing storage is bypassed by click routing.
-            return InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(stack.getItem()))
-                    && this.blockEntity.getStoredItem().isEmpty()
-                    && !this.blockEntity.isInfinite();
+            // Honour the item filter even if the backing container is bypassed by click routing.
+            return !this.blockEntity.isInfinite()
+                    && InfinityWhatConfig.isItemAllowed(BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                    && super.mayPlace(stack);
         }
 
         @Override
@@ -130,10 +115,69 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         }
     }
 
+    /** One-slot container view over the block entity's template item. */
+    private static class TemplateContainer implements Container {
+        private final InfItemGeneratorBlockEntity blockEntity;
+
+        TemplateContainer(InfItemGeneratorBlockEntity blockEntity) {
+            this.blockEntity = blockEntity;
+        }
+
+        @Override
+        public int getContainerSize() {
+            return 1;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return this.blockEntity.getStoredItem().isEmpty();
+        }
+
+        @Override
+        public ItemStack getItem(int slot) {
+            return this.blockEntity.getStoredItem();
+        }
+
+        @Override
+        public ItemStack removeItem(int slot, int amount) {
+            return this.blockEntity.extractStored(amount);
+        }
+
+        @Override
+        public ItemStack removeItemNoUpdate(int slot) {
+            return this.blockEntity.extractStored(1);
+        }
+
+        @Override
+        public void setItem(int slot, ItemStack stack) {
+            this.blockEntity.setStoredItem(stack);
+        }
+
+        @Override
+        public void setChanged() {
+            this.blockEntity.markUpdated();
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+
+        @Override
+        public void clearContent() {
+            this.blockEntity.removeStored(1);
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+    }
+
     @Override
     public boolean stillValid(Player player) {
         return stillValid(
-                ContainerLevelAccess.create(this.level, this.pos),
+                ContainerLevelAccess.create(this.level, this.blockEntity.getBlockPos()),
                 player,
                 ModBlocks.INF_ITEM_GENERATOR);
     }
@@ -154,7 +198,17 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
         } else {
-            boolean moved = this.moveItemStackTo(stack, GENERATOR_SLOT_INDEX, GENERATOR_SLOT_INDEX + 1, false);
+            // Older moveItemStackTo implementations merge against the item's stack limit rather
+            // than the slot limit, so place exactly one template item explicitly here.
+            boolean moved = false;
+            if (this.generatorSlot.mayPlace(stack) && this.generatorSlot.getItem().isEmpty()) {
+                ItemStack single = stack.copy();
+                single.setCount(1);
+                this.generatorSlot.set(single);
+                this.generatorSlot.setChanged();
+                stack.shrink(1);
+                moved = true;
+            }
             if (!moved && index < PLAYER_SLOTS) {
                 moved = this.moveItemStackTo(stack, PLAYER_SLOTS, PLAYER_SLOTS + HOTBAR_SLOTS, false);
             } else if (!moved) {
@@ -197,9 +251,48 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(Direction direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
     /** Hides the stored item slot while the screen displays its separate I/O settings page. */
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -211,18 +304,34 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         }
         if (buttonId == BUTTON_TOGGLE_INFINITE) {
             this.blockEntity.setInfiniteModeEnabled(!this.blockEntity.isInfiniteModeEnabled());
+            syncBlockEntity(player);
             return true;
         }
         if (buttonId == BUTTON_TOGGLE_OUTPUT) {
             this.blockEntity.setOutputEnabled(!this.blockEntity.isOutputEnabled());
+            syncBlockEntity(player);
             return true;
         }
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            syncBlockEntity(player);
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
+            syncBlockEntity(player);
             return true;
         }
         return false;
+    }
+
+    /** Pushes the block entity state to the clicking player so button feedback is immediate. */
+    private void syncBlockEntity(Player player) {
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            serverPlayer.connection.send(this.blockEntity.getUpdatePacket());
+        }
     }
 
     /** The single template item held by the generator (used by the screen to label the slot). */
@@ -237,16 +346,16 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
      * All other click types are ignored while the slot is locked in infinite mode.
      */
     @Override
-    public void clicked(int slotId, int button, ContainerInput ContainerInput, Player player) {
+    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
         if (slotId == GENERATOR_SLOT_INDEX && this.blockEntity.isInfinite()) {
-            if (ContainerInput == ContainerInput.PICKUP && button == 0) {
+            if (clickType == ContainerInput.PICKUP && button == 0) {
                 takeFromInfinite(player, 1, false);
-            } else if (ContainerInput == ContainerInput.QUICK_MOVE && button == 0) {
+            } else if (clickType == ContainerInput.QUICK_MOVE && button == 0) {
                 takeFromInfinite(player, getInfiniteStackSize(), true);
             }
             return;
         }
-        super.clicked(slotId, button, ContainerInput, player);
+        super.clicked(slotId, button, clickType, player);
     }
 
     private int getInfiniteStackSize() {
@@ -260,15 +369,7 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
      * depleted.
      */
     private void takeFromInfinite(Player player, int amount, boolean toInventory) {
-        ItemStack taken = ItemStack.EMPTY;
-        try (Transaction transaction = Transaction.openOuter()) {
-            long extracted = this.blockEntity.getItemStorage().extract(
-                    this.blockEntity.getStoredVariant(), amount, transaction);
-            if (extracted > 0L) {
-                transaction.commit();
-                taken = this.blockEntity.getStoredItem().copyWithCount((int) extracted);
-            }
-        }
+        ItemStack taken = this.blockEntity.extractStored(amount);
         if (taken.isEmpty()) {
             return;
         }
@@ -298,6 +399,5 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         } else if (!player.getInventory().add(taken)) {
             player.drop(taken, false);
         }
-        this.broadcastChanges();
     }
 }
