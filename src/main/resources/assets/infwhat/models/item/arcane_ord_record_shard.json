@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "infwhat:items/arcane_ord_record_shard"
+  }
+}

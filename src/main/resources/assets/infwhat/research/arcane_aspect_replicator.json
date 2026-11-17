@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "key": "ARCANE_REPLICATOR",
+      "name": "research.infwhat.ARCANE_REPLICATOR.title",
+      "icons": ["infwhat:arcane_aspect_replicator"],
+      "category": "ALCHEMY",
+      "parents": ["ESSENTIASMELTER"],
+      "location": [5, 0],
+      "stages": [
+        {
+          "text": "research.infwhat.ARCANE_REPLICATOR.stage.1"
+        },
+        {
+          "text": "research.infwhat.ARCANE_REPLICATOR.stage.2",
+          "recipes": ["infwhat:arcane_aspect_replicator"]
+        }
+      ]
+    }
+  ]
+}
