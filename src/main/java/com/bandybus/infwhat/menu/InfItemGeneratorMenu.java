@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
 import net.minecraft.entity.player.PlayerEntity;
@@ -19,6 +20,9 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
@@ -42,10 +46,12 @@ public class InfItemGeneratorMenu extends Container {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorBlockEntity blockEntity;
     private final World level;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     // Client constructor: receives the block pos written by NetworkHooks#openGui.
     public InfItemGeneratorMenu(int containerId, PlayerInventory playerInventory, PacketBuffer data) {
@@ -61,12 +67,16 @@ public class InfItemGeneratorMenu extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         this.generatorSlot = new GeneratorSlot(this.blockEntity, this.blockEntity.getItemHandler(),
@@ -131,8 +141,8 @@ public class InfItemGeneratorMenu extends Container {
                 return ItemStack.EMPTY;
             }
         } else {
-            // 1.18.2–1.20.4 的 moveItemStackTo 在“同物品合并”时用的是物品堆叠上限而不是
-            // 槽位上限，shift-click 会把整摞并进模板槽；这里显式只放 1 个。
+            // 1.16.5 的 moveItemStackTo 在“同物品合并”时用的是物品堆叠上限而不是槽位上限，
+            // shift-click 会把整摞并进模板槽；这里显式只放 1 个。
             boolean moved = false;
             Slot generatorSlot = this.slots.get(GENERATOR_SLOT_INDEX);
             if (!stack.isEmpty() && generatorSlot.mayPlace(stack) && generatorSlot.getItem().isEmpty()) {
@@ -177,17 +187,52 @@ public class InfItemGeneratorMenu extends Container {
         return this.blockEntity.isOutputEnabled();
     }
 
-    public int getOutputItemsPerTick() {
-        return this.blockEntity.getOutputItemsPerTick();
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(Direction direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
     }
 
     public boolean isOutputSideEnabled(Direction direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
     /** Hides the stored item slot while the screen displays its separate I/O settings page. */
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -208,6 +253,11 @@ public class InfItemGeneratorMenu extends Container {
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;

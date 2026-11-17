@@ -3,6 +3,7 @@ package com.bandybus.infwhat.block;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import com.bandybus.infwhat.item.ModItems;
 import net.minecraft.block.AbstractBlock;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.ContainerBlock;
@@ -42,6 +43,28 @@ public class InfFluidGeneratorBlock extends ContainerBlock {
     public INamedContainerProvider getMenuProvider(BlockState state, World world, BlockPos pos) {
         TileEntity tileEntity = world.getBlockEntity(pos);
         return tileEntity instanceof INamedContainerProvider ? (INamedContainerProvider) tileEntity : null;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void neighborChanged(BlockState state, World world, BlockPos pos, Block block,
+                                BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, world, pos, block, fromPos, isMoving);
+        if (!world.isClientSide && world.getBlockEntity(pos) instanceof InfFluidGeneratorBlockEntity) {
+            ((InfFluidGeneratorBlockEntity) world.getBlockEntity(pos)).wakeOutput();
+        }
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, World world, BlockPos pos) {
+        TileEntity tileEntity = world.getBlockEntity(pos);
+        return tileEntity instanceof InfFluidGeneratorBlockEntity
+                ? ((InfFluidGeneratorBlockEntity) tileEntity).getComparatorOutput() : 0;
     }
 
     @Override

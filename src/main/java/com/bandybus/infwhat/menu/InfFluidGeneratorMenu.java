@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -23,6 +24,9 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Container menu for the Infinity Fluid Generator. There are no item slots for the machine
  * itself, only the player inventory; the fluid is read straight from the block entity, which
@@ -39,6 +43,7 @@ public class InfFluidGeneratorMenu extends Container {
     public static final int BUTTON_TOGGLE_OUTPUT = 0;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
     public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private static final int PLAYER_SLOTS = 27;
     private static final int HOTBAR_SLOTS = 9;
@@ -48,6 +53,7 @@ public class InfFluidGeneratorMenu extends Container {
 
     private final InfFluidGeneratorBlockEntity blockEntity;
     private final World level;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     // Client constructor: receives the block pos written by NetworkHooks#openGui.
     public InfFluidGeneratorMenu(int containerId, PlayerInventory playerInventory, PacketBuffer data) {
@@ -64,12 +70,16 @@ public class InfFluidGeneratorMenu extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         // Display-only slot over the tank. It never stores items; bucket interactions are
@@ -79,11 +89,19 @@ public class InfFluidGeneratorMenu extends Container {
         this.addSlot(new FluidSlot(-100, -100));
     }
 
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
+    }
+
     /**
      * Direct bucket interaction with the tank slot: while the GUI is open, the container on the
      * cursor is filled from the tank first, and poured into the tank when filling is not possible.
      * Without an open GUI the block only exposes its fluid capability.
-     */    @Override
+     */
+    @Override
     public ItemStack clicked(int slotId, int button, ClickType clickType, PlayerEntity player) {
         if (slotId == FLUID_SLOT_INDEX && clickType == ClickType.PICKUP && (button == 0 || button == 1)) {
             // The client also calls clicked() locally (MultiPlayerGameMode#handleInventoryMouseClick),
@@ -219,12 +237,40 @@ public class InfFluidGeneratorMenu extends Container {
         return this.blockEntity.isOutputEnabled();
     }
 
+    public long getSideRateMb(Direction direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
     public boolean isOutputSideEnabled(Direction direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
-    public long getOutputAmountPerTick() {
-        return this.blockEntity.getOutputAmountPerTick();
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
     }
 
     public float getFillRatio() {
@@ -247,6 +293,11 @@ public class InfFluidGeneratorMenu extends Container {
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;
