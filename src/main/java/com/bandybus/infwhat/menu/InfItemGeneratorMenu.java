@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
 import net.minecraft.core.BlockPos;
@@ -16,12 +17,15 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
  * slot. The slot always holds exactly one item; while infinite mode is enabled the item becomes
  * an infinite source. Manual retrieval is handled in {@link #clicked}: left-click gives one item,
  * shift+left-click gives a full stack, and the source is never depleted (it is the storage view,
- * not this slot, that reports the huge amount to pipes).
+ * not this slot, that reports the huge count to pipes/AE2).
  */
 public class InfItemGeneratorMenu extends AbstractContainerMenu {
 
@@ -38,11 +42,14 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorBlockEntity blockEntity;
     private final Level level;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
 
+    // Client constructor: receives the block pos written by getScreenOpeningData.
     public InfItemGeneratorMenu(int containerId, Inventory playerInventory, BlockPos pos) {
         this(containerId, playerInventory, resolveBlockEntity(playerInventory, pos));
     }
@@ -60,12 +67,16 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         this.generatorSlot = new GeneratorSlot(this.blockEntity, new TemplateContainer(this.blockEntity),
@@ -165,7 +176,7 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
 
         @Override
         public void clearContent() {
-            this.blockEntity.clearStoredItem();
+            this.blockEntity.removeStored(1);
         }
 
         @Override
@@ -198,7 +209,17 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
         } else {
-            boolean moved = this.moveItemStackTo(stack, GENERATOR_SLOT_INDEX, GENERATOR_SLOT_INDEX + 1, false);
+            // Older moveItemStackTo implementations merge against the item's stack limit rather
+            // than the slot limit, so place exactly one template item explicitly here.
+            boolean moved = false;
+            if (this.generatorSlot.mayPlace(stack) && this.generatorSlot.getItem().isEmpty()) {
+                ItemStack single = stack.copy();
+                single.setCount(1);
+                this.generatorSlot.set(single);
+                this.generatorSlot.setChanged();
+                stack.shrink(1);
+                moved = true;
+            }
             if (!moved && index < PLAYER_SLOTS) {
                 moved = this.moveItemStackTo(stack, PLAYER_SLOTS, PLAYER_SLOTS + HOTBAR_SLOTS, false);
             } else if (!moved) {
@@ -241,9 +262,48 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(Direction direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
     /** Hides the stored item slot while the screen displays its separate I/O settings page. */
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -264,6 +324,11 @@ public class InfItemGeneratorMenu extends AbstractContainerMenu {
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;

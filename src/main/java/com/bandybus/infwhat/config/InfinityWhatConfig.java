@@ -10,6 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Configuration for the Infinity generators, stored in {@code config/infwhat.toml}.
@@ -21,8 +24,11 @@ import java.util.List;
  *       {@code mode} ({@link FilterMode#BLACKLIST} by default) and an initially empty
  *       {@code list}. BLACKLIST rejects listed ids; WHITELIST accepts only listed ids.</li>
  * </ul>
+ *
+ * Fabric has no config system, so this class contains a deliberately small TOML reader: it only
+ * understands the sections, booleans, integers, strings and string arrays used above.
  */
-public final class InfinityWhatConfig {
+public class InfinityWhatConfig {
 
     /** How a filter list is interpreted. */
     public enum FilterMode {
@@ -32,24 +38,39 @@ public final class InfinityWhatConfig {
         WHITELIST
     }
 
+    private static final String FILE_NAME = "infwhat.toml";
+    private static final int DEFAULT_FINITE_CAPACITY = 16000;
+    private static final long DEFAULT_MAX_ITEM_RATE_PER_SIDE = Integer.MAX_VALUE;
+    private static final long DEFAULT_MAX_ITEM_TOTAL_RATE = (long) Integer.MAX_VALUE * 6L;
+    private static final long DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB = (long) Integer.MAX_VALUE * 1_000L;
+    private static final long DEFAULT_MAX_FLUID_TOTAL_RATE_MB = (long) Integer.MAX_VALUE * 1_000L * 6L;
+
     private static final String DEFAULT_FILE = """
             # Infinity What configuration.
-            # Edit and restart the game (or reload the world) to apply changes.
+            # Invalid values fall back to the defaults below.
 
             [balance]
             # Master switch for the infinite behaviour of both generators.
             # Fluid generator: if false it behaves like a normal tank limited to finiteTankCapacity.
             # Item generator: if false it never becomes an unlimited item source.
             enableInfiniteSource = true
-
             # Capacity in mB used when enableInfiniteSource is false.
             finiteTankCapacity = 16000
+
+            [limits]
+            # Maximum item rate per side, in items per tick.
+            maxItemRatePerSide = 2147483647
+            # Maximum total item rate, in items per tick.
+            maxItemTotalRate = 12884901882
+            # Maximum fluid rate per side, in mB per tick.
+            maxFluidRatePerSideMb = 2147483647000
+            # Maximum total fluid rate, in mB per tick.
+            maxFluidTotalRateMb = 12884901882000
 
             [item_filter]
             # BLACKLIST: listed item ids can never be inserted.
             # WHITELIST: only listed item ids can be inserted.
             mode = "BLACKLIST"
-
             # Item ids (e.g. "minecraft:diamond") the mode above applies to.
             list = []
 
@@ -57,24 +78,45 @@ public final class InfinityWhatConfig {
             # BLACKLIST: listed fluid ids can never be inserted.
             # WHITELIST: only listed fluid ids can be inserted.
             mode = "BLACKLIST"
-
             # Fluid ids (e.g. "minecraft:water") the mode above applies to.
             list = []
             """;
 
-    private static boolean infiniteEnabled = true;
-    private static int finiteCapacity = 16_000;
+    private static final Pattern QUOTED = Pattern.compile("\"([^\"]*)\"");
+
+    private static boolean enableInfiniteSource = true;
+    private static int finiteTankCapacity = DEFAULT_FINITE_CAPACITY;
+    private static long maxItemRatePerSide = DEFAULT_MAX_ITEM_RATE_PER_SIDE;
+    private static long maxItemTotalRate = DEFAULT_MAX_ITEM_TOTAL_RATE;
+    private static long maxFluidRatePerSideMb = DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB;
+    private static long maxFluidTotalRateMb = DEFAULT_MAX_FLUID_TOTAL_RATE_MB;
     private static FilterMode itemFilterMode = FilterMode.BLACKLIST;
     private static List<String> itemFilterList = List.of();
     private static FilterMode fluidFilterMode = FilterMode.BLACKLIST;
     private static List<String> fluidFilterList = List.of();
 
     public static boolean infiniteEnabled() {
-        return infiniteEnabled;
+        return enableInfiniteSource;
     }
 
     public static int finiteCapacity() {
-        return finiteCapacity;
+        return finiteTankCapacity;
+    }
+
+    public static long maxItemRatePerSide() {
+        return maxItemRatePerSide;
+    }
+
+    public static long maxItemTotalRate() {
+        return maxItemTotalRate;
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return maxFluidRatePerSideMb;
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return maxFluidTotalRateMb;
     }
 
     /** Whether the given item id may be inserted into the item generator. */
@@ -99,152 +141,174 @@ public final class InfinityWhatConfig {
         load();
     }
 
-    public static void reload() {
-        load();
-    }
-
-    private static void load() {
-        Path path = FabricLoader.getInstance().getConfigDir().resolve("infwhat.toml");
+    public static void load() {
+        Path path = FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
         try {
-            if (Files.notExists(path)) {
+            if (!Files.exists(path)) {
                 Files.createDirectories(path.getParent());
                 Files.writeString(path, DEFAULT_FILE, StandardCharsets.UTF_8);
             }
             parse(Files.readAllLines(path, StandardCharsets.UTF_8));
-        } catch (IOException exception) {
-            InfinityWhat.LOGGER.warn("Infinity What: could not read {}", path, exception);
+        } catch (IOException | RuntimeException exception) {
+            InfinityWhat.LOGGER.warn("Infinity What: failed to read {}, using defaults", path, exception);
         }
     }
 
     private static void parse(List<String> lines) {
-        boolean infiniteEnabled = true;
-        int finiteCapacity = 16_000;
-        FilterMode itemFilterMode = FilterMode.BLACKLIST;
-        List<String> itemFilterList = List.of();
-        FilterMode fluidFilterMode = FilterMode.BLACKLIST;
-        List<String> fluidFilterList = List.of();
-
         String section = "";
-        for (int i = 0; i < lines.size(); i++) {
-            String line = stripComment(lines.get(i)).trim();
+        for (int index = 0; index < lines.size(); index++) {
+            String line = stripComment(lines.get(index)).trim();
             if (line.isEmpty()) {
                 continue;
             }
             if (line.startsWith("[") && line.endsWith("]")) {
-                section = line.substring(1, line.length() - 1).trim();
+                section = line.substring(1, line.length() - 1).trim().toLowerCase(Locale.ROOT);
                 continue;
             }
             int equals = line.indexOf('=');
             if (equals < 0) {
                 continue;
             }
-            String key = line.substring(0, equals).trim();
+            String key = normalize(line.substring(0, equals));
             String value = line.substring(equals + 1).trim();
-            while (hasOpenArray(value) && i + 1 < lines.size()) {
-                i++;
-                value = value + " " + stripComment(lines.get(i)).trim();
+            if (value.startsWith("[")) {
+                // 多行数组：括号未闭合时继续拼接后续行。
+                StringBuilder array = new StringBuilder(value);
+                while (bracketDepth(array.toString()) > 0 && index + 1 < lines.size()) {
+                    array.append(' ').append(stripComment(lines.get(++index)).trim());
+                }
+                value = array.toString();
             }
-
-            switch (section) {
-                case "balance" -> {
-                    if (key.equals("enableInfiniteSource")) {
-                        infiniteEnabled = Boolean.parseBoolean(unquote(value));
-                    } else if (key.equals("finiteTankCapacity")) {
-                        try {
-                            finiteCapacity = Math.max(1, Integer.parseInt(unquote(value)));
-                        } catch (NumberFormatException ignored) {
-                        }
-                    }
-                }
-                case "item_filter" -> {
-                    if (key.equals("mode")) {
-                        itemFilterMode = parseMode(value);
-                    } else if (key.equals("list")) {
-                        itemFilterList = parseList(value);
-                    }
-                }
-                case "fluid_filter" -> {
-                    if (key.equals("mode")) {
-                        fluidFilterMode = parseMode(value);
-                    } else if (key.equals("list")) {
-                        fluidFilterList = parseList(value);
-                    }
-                }
-                default -> {
-                }
-            }
+            apply(section, key, value);
         }
-
-        InfinityWhatConfig.infiniteEnabled = infiniteEnabled;
-        InfinityWhatConfig.finiteCapacity = finiteCapacity;
-        InfinityWhatConfig.itemFilterMode = itemFilterMode;
-        InfinityWhatConfig.itemFilterList = itemFilterList;
-        InfinityWhatConfig.fluidFilterMode = fluidFilterMode;
-        InfinityWhatConfig.fluidFilterList = fluidFilterList;
     }
 
-    private static FilterMode parseMode(String value) {
-        return unquote(value).equalsIgnoreCase("WHITELIST") ? FilterMode.WHITELIST : FilterMode.BLACKLIST;
+    private static void apply(String section, String key, String value) {
+        switch (section) {
+            case "balance" -> {
+                if (key.equals("enableinfinitesource")) {
+                    enableInfiniteSource = parseBoolean(value, true);
+                } else if (key.equals("finitetankcapacity")) {
+                    finiteTankCapacity = parseCapacity(value);
+                }
+            }
+            case "item_filter" -> {
+                if (key.equals("mode")) {
+                    itemFilterMode = parseMode(value, FilterMode.BLACKLIST);
+                } else if (key.equals("list")) {
+                    itemFilterList = parseList(value);
+                }
+            }
+            case "fluid_filter" -> {
+                if (key.equals("mode")) {
+                    fluidFilterMode = parseMode(value, FilterMode.BLACKLIST);
+                } else if (key.equals("list")) {
+                    fluidFilterList = parseList(value);
+                }
+            }
+            case "limits" -> {
+                if (key.equals("maxitemrateperside")) {
+                    maxItemRatePerSide = parseLong(value, DEFAULT_MAX_ITEM_RATE_PER_SIDE, 1L,
+                            (long) Integer.MAX_VALUE);
+                } else if (key.equals("maxitemtotalrate")) {
+                    maxItemTotalRate = parseLong(value, DEFAULT_MAX_ITEM_TOTAL_RATE, 1L,
+                            Long.MAX_VALUE);
+                } else if (key.equals("maxfluidratepersidemb")) {
+                    maxFluidRatePerSideMb = parseLong(value, DEFAULT_MAX_FLUID_RATE_PER_SIDE_MB, 1L,
+                            (long) Integer.MAX_VALUE * 1_000L);
+                } else if (key.equals("maxfluidtotalratemb")) {
+                    maxFluidTotalRateMb = parseLong(value, DEFAULT_MAX_FLUID_TOTAL_RATE_MB, 1L,
+                            Long.MAX_VALUE);
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private static String normalize(String key) {
+        return key.trim().replace("_", "").toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean parseBoolean(String value, boolean fallback) {
+        if (value.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false")) {
+            return false;
+        }
+        return fallback;
+    }
+
+    private static int parseCapacity(String value) {
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            return parsed >= 1 ? parsed : DEFAULT_FINITE_CAPACITY;
+        } catch (NumberFormatException exception) {
+            return DEFAULT_FINITE_CAPACITY;
+        }
+    }
+
+    private static long parseLong(String value, long fallback, long min, long max) {
+        try {
+            long parsed = Long.parseLong(value.trim());
+            return Math.max(min, Math.min(max, parsed));
+        } catch (NumberFormatException exception) {
+            return fallback;
+        }
+    }
+
+    private static FilterMode parseMode(String value, FilterMode fallback) {
+        String normalized = value.trim().replace("\"", "").toUpperCase(Locale.ROOT);
+        if (normalized.equals("BLACKLIST")) {
+            return FilterMode.BLACKLIST;
+        }
+        if (normalized.equals("WHITELIST")) {
+            return FilterMode.WHITELIST;
+        }
+        return fallback;
     }
 
     private static List<String> parseList(String value) {
-        String body = value.trim();
-        if (body.startsWith("[")) {
-            body = body.substring(1);
-        }
-        if (body.endsWith("]")) {
-            body = body.substring(0, body.length() - 1);
-        }
         List<String> result = new ArrayList<>();
-        for (String part : body.split(",")) {
-            String entry = unquote(part.trim());
-            if (!entry.isEmpty()) {
-                result.add(entry);
+        Matcher matcher = QUOTED.matcher(value);
+        while (matcher.find()) {
+            String id = matcher.group(1).trim();
+            if (id.contains(":")) {
+                result.add(id);
             }
         }
         return List.copyOf(result);
     }
 
-    private static String unquote(String value) {
-        String trimmed = value.trim();
-        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
-            return trimmed.substring(1, trimmed.length() - 1);
-        }
-        return trimmed;
-    }
-
-    private static boolean hasOpenArray(String value) {
-        if (!value.startsWith("[")) {
-            return false;
-        }
-        int depth = 0;
-        boolean inString = false;
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c == '"') {
-                inString = !inString;
-            } else if (!inString) {
-                if (c == '[') {
-                    depth++;
-                } else if (c == ']') {
-                    depth--;
-                }
-            }
-        }
-        return depth > 0;
-    }
-
+    /** 去掉引号之外的行内注释。 */
     private static String stripComment(String line) {
-        boolean inString = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '"') {
-                inString = !inString;
-            } else if (c == '#' && !inString) {
-                return line.substring(0, i);
+        boolean quoted = false;
+        for (int index = 0; index < line.length(); index++) {
+            char character = line.charAt(index);
+            if (character == '"') {
+                quoted = !quoted;
+            } else if (character == '#' && !quoted) {
+                return line.substring(0, index);
             }
         }
         return line;
+    }
+
+    private static int bracketDepth(String value) {
+        int depth = 0;
+        boolean quoted = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character == '"') {
+                quoted = !quoted;
+            } else if (!quoted && character == '[') {
+                depth++;
+            } else if (!quoted && character == ']') {
+                depth--;
+            }
+        }
+        return depth;
     }
 
     private InfinityWhatConfig() {
