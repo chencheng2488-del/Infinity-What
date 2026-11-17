@@ -10,6 +10,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.RenderShape;
@@ -55,6 +56,28 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
     }
 
     @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfFluidGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos fromPos, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighborBlock, fromPos, movedByPiston);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfFluidGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
+    }
+
+    @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
                                                 BlockHitResult hit) {
         if (player.getMainHandItem().is(ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get())) {
@@ -69,6 +92,6 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
             }
         }
         // Always report success on the client so the arm swings; the server opens the menu.
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return level.isClientSide ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
     }
 }

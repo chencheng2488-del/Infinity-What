@@ -42,6 +42,10 @@ public class InfinityWhatConfig {
     public static class Common {
         public final ModConfigSpec.BooleanValue enableInfiniteSource;
         public final ModConfigSpec.IntValue finiteTankCapacity;
+        public final ModConfigSpec.LongValue maxItemRatePerSide;
+        public final ModConfigSpec.LongValue maxItemTotalRate;
+        public final ModConfigSpec.LongValue maxFluidRatePerSideMb;
+        public final ModConfigSpec.LongValue maxFluidTotalRateMb;
         public final ModConfigSpec.EnumValue<FilterMode> itemFilterMode;
         public final ModConfigSpec.ConfigValue<List<? extends String>> itemFilterList;
         public final ModConfigSpec.EnumValue<FilterMode> fluidFilterMode;
@@ -59,6 +63,28 @@ public class InfinityWhatConfig {
                     .defineInRange("finiteTankCapacity", 16000, 1, Integer.MAX_VALUE);
             builder.pop();
 
+            builder.comment("Server-side output limits. Rates are per side unless stated otherwise.",
+                            "The totals are the sum of all enabled sides; writes above a limit are rejected.")
+                    .push("limits");
+            this.maxItemRatePerSide = builder
+                    .comment("Maximum item rate per side, in items per tick.")
+                    .defineInRange("maxItemRatePerSide",
+                            (long) Integer.MAX_VALUE, 1L, (long) Integer.MAX_VALUE);
+            this.maxItemTotalRate = builder
+                    .comment("Maximum total item rate, in items per tick.")
+                    .defineInRange("maxItemTotalRate",
+                            (long) Integer.MAX_VALUE * 6L, 1L, Long.MAX_VALUE);
+            this.maxFluidRatePerSideMb = builder
+                    .comment("Maximum fluid rate per side, in mB per tick.")
+                    .defineInRange("maxFluidRatePerSideMb",
+                            (long) Integer.MAX_VALUE * 1_000L,
+                            1L, (long) Integer.MAX_VALUE * 1_000L);
+            this.maxFluidTotalRateMb = builder
+                    .comment("Maximum total fluid rate, in mB per tick.")
+                    .defineInRange("maxFluidTotalRateMb",
+                            (long) Integer.MAX_VALUE * 1_000L * 6L, 1L, Long.MAX_VALUE);
+            builder.pop();
+
             builder.comment("Item filter for the item generator.").push("item_filter");
             this.itemFilterMode = builder
                     .comment("BLACKLIST: listed item ids can never be inserted.",
@@ -66,7 +92,7 @@ public class InfinityWhatConfig {
                     .defineEnum("mode", FilterMode.BLACKLIST);
             this.itemFilterList = builder
                     .comment("Item ids (e.g. \"minecraft:diamond\") the mode above applies to.")
-                    .defineListAllowEmpty("list", List.<String>of(),
+                    .defineList("list", List.<String>of(),
                             obj -> obj instanceof String s && s.contains(":"));
             builder.pop();
 
@@ -77,7 +103,7 @@ public class InfinityWhatConfig {
                     .defineEnum("mode", FilterMode.BLACKLIST);
             this.fluidFilterList = builder
                     .comment("Fluid ids (e.g. \"minecraft:water\") the mode above applies to.")
-                    .defineListAllowEmpty("list", List.<String>of(),
+                    .defineList("list", List.<String>of(),
                             obj -> obj instanceof String s && s.contains(":"));
             builder.pop();
         }
@@ -89,6 +115,22 @@ public class InfinityWhatConfig {
 
     public static int finiteCapacity() {
         return COMMON.finiteTankCapacity.get();
+    }
+
+    public static long maxItemRatePerSide() {
+        return COMMON.maxItemRatePerSide.get();
+    }
+
+    public static long maxItemTotalRate() {
+        return COMMON.maxItemTotalRate.get();
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return COMMON.maxFluidRatePerSideMb.get();
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return COMMON.maxFluidTotalRateMb.get();
     }
 
     /** Whether the given item id may be inserted into the item generator. */
