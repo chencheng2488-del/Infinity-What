@@ -9,6 +9,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -52,6 +53,28 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_ITEM_GENERATOR,
                 InfItemGeneratorBlockEntity::serverTick);
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfItemGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                net.minecraft.world.level.redstone.Orientation orientation, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, orientation, isMoving);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
     }
 
     @Override
