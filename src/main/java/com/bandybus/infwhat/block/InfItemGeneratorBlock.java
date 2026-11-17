@@ -1,0 +1,116 @@
+package com.bandybus.infwhat.block;
+
+import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
+import com.bandybus.infwhat.item.ModItems;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.ContainerBlock;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.container.INamedContainerProvider;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.world.IBlockReader;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.network.NetworkHooks;
+
+import javax.annotation.Nullable;
+
+/**
+ * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
+ * opens a small UI, while every side exposes a Forge {@code IItemHandler} capability so pipe
+ * mods can pull from it. The server tick handles only the explicitly configured active output;
+ * redstone does not affect this block.
+ */
+public class InfItemGeneratorBlock extends ContainerBlock {
+
+    public InfItemGeneratorBlock(Block.Properties properties) {
+        super(properties);
+    }
+
+    @Override
+    public BlockRenderType getRenderShape(BlockState state) {
+        return BlockRenderType.MODEL;
+    }
+
+    /** 1.15.2 has no block-property flag for this, so the shape check is overridden directly. */
+    @Override
+    public boolean isRedstoneConductor(BlockState state, IBlockReader reader, BlockPos pos) {
+        return false;
+    }
+
+    @Nullable
+    @Override
+    public TileEntity newBlockEntity(IBlockReader world) {
+        return new InfItemGeneratorBlockEntity();
+    }
+
+    @Nullable
+    @Override
+    public INamedContainerProvider getMenuProvider(BlockState state, World world, BlockPos pos) {
+        TileEntity tileEntity = world.getBlockEntity(pos);
+        return tileEntity instanceof INamedContainerProvider ? (INamedContainerProvider) tileEntity : null;
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void neighborChanged(BlockState state, World world, BlockPos pos, Block block,
+                                BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, world, pos, block, fromPos, isMoving);
+        if (!world.isClientSide && world.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity) {
+            ((InfItemGeneratorBlockEntity) world.getBlockEntity(pos)).wakeOutput();
+        }
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, World world, BlockPos pos) {
+        TileEntity tileEntity = world.getBlockEntity(pos);
+        return tileEntity instanceof InfItemGeneratorBlockEntity
+                ? ((InfItemGeneratorBlockEntity) tileEntity).getComparatorOutput() : 0;
+    }
+
+    @Override
+    public boolean use(BlockState state, World world, BlockPos pos, PlayerEntity player,
+                       Hand hand, BlockRayTraceResult hit) {
+        if (player.getItemInHand(hand).getItem() == ModItems.INFINITE_SOURCE_CONFIG_REPLICATOR.get()) {
+            return false;
+        }
+        if (!world.isClientSide && player instanceof ServerPlayerEntity) {
+            TileEntity tileEntity = world.getBlockEntity(pos);
+            if (tileEntity instanceof InfItemGeneratorBlockEntity) {
+                NetworkHooks.openGui((ServerPlayerEntity) player,
+                        (InfItemGeneratorBlockEntity) tileEntity, pos);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Drops the template item that is currently stored in the generator when a player breaks the
+     * block, so it is never silently deleted. The item is locked while infinite mode is enabled,
+     * and this hook restores it either way.
+     */
+    @Override
+    public void playerDestroy(World world, PlayerEntity player, BlockPos pos, BlockState state,
+                              TileEntity tileEntity, ItemStack tool) {
+        if (!world.isClientSide) {
+            if (tileEntity instanceof InfItemGeneratorBlockEntity) {
+                ItemStack stored = ((InfItemGeneratorBlockEntity) tileEntity).getStoredItem();
+                if (!stored.isEmpty()) {
+                    popResource(world, pos, stored.copy());
+                }
+            }
+        }
+        super.playerDestroy(world, player, pos, state, tileEntity, tool);
+    }
+}
