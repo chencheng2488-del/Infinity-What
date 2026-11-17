@@ -1,0 +1,90 @@
+﻿D:\JavaYY\InfWh Transplant\Forge Ver\1.14.3\src\main\java\com\bandybus\infwhat\block\entity\OutputStatus.java:8: error: || package net.minecraft.world.server does not exist || import net.minecraft.world.server.ServerWorld;
+cannot find symbol || public int fill(FluidStack resource, FluidAction action) { || ^
+cannot find symbol || public FluidStack drain(FluidStack resource, FluidAction action) { || ^
+cannot find symbol || public FluidStack drain(int maxDrain, FluidAction action) { || ^
+cannot f || ind symbol || import net.minecraftforge.registries.DeferredRegister;
+cannot f || ind symbol || public static final DeferredRegister<Block> BLOCKS =
+cannot find symbol || import net.minecraftforge.fluids.FluidAttributes; || ^
+cannot find || symbol || import net.minecraftforge.registries.DeferredRegister;
+cannot fin || d symbol || public static final DeferredRegister<Item> ITEMS =
+cannot  || find symbol || import net.minecraftforge.registries.DeferredRegister;
+cannot || find symbol || public static final DeferredRegister<ContainerType<?>> MENUS =
+cannot find symbol || private FluidStack tank = FluidStack.EMPTY; || ^
+cannot find symbol || super(ModBlockEntities.INF_FLUID_GENERATOR.get()); || ^
+cannot find symbol || keys[direction.get3DDataValue()] = "SideRate" || ^
+cannot find symbol || return direction.get3DDataValue(); || ^
+cannot find symbol || return effectivelyInfinite() ? Long.MAX_VALUE : this.tank.getAmount(); || ^
+cannot find symbol || return (this.outputSideMask & (1 << direction.get3DDataValue())) != 0; || ^
+cannot find symbol || if (this.level == null) { || ^
+cannot find symbol || return this.level.hasNeighborSignal(this.worldPosition); || ^
+cannot find symbol || return this.level.hasNeighborSignal(this.worldPosition); || ^
+cannot find symbol || return !this.level.hasNeighborSignal(this.worldPosition); || ^
+cannot find symbol || return !this.level.hasNeighborSignal(this.worldPosition); || ^
+cannot find symbol || this.level.getGameTime() + this.worldPosition.asLong(), period); || ^
+cannot find symbol || this.level.getGameTime() + this.worldPosition.asLong(), period); || ^
+cannot find symbol || if (this.tank.isEmpty() && !this.infinite) { || ^
+cannot find symbol || this.tank = FluidStack.EMPTY; || ^
+cannot find symbol || if (this.tank.isEmpty()) { || ^
+cannot find symbol || return Math.min(1.0F, (float) this.tank.getAmount() / (float) capacity); || ^
+method does not override or implement a method from a supertype || @Override || ^
+cannot find symbol || super.load(tag); || ^
+cannot find symbol || this.tank = FluidStack.EMPTY; || ^
+cannot find symbol || if (!loaded.isEmpty()) { || ^
+cannot find symbol || this.infinite = tag.getBoolean(KEY_INFINITE) && !this.tank.isEmpty(); || ^
+method does not override or implement a method from a supertype || @Override || ^
+cannot find symbol || super.save(tag); || ^
+cannot find symbol || if (!this.tank.isEmpty()) { || ^
+cannot find symbol || return new SUpdateTileEntityPacket(this.worldPosition, 1, this.getUpdateTag()); || ^
+cannot find symbol || this.load(packet.getTag()); || ^
+cannot find symbol || setChanged(); || ^
+cannot find symbol || if (this.level != null && !this.level.isClientSide) { || ^
+cannot find symbol || if (this.level != null && !this.level.isClientSide) { || ^
+cannot find symbol || this.level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), || ^
+cannot find symbol || Constants.BlockFlags.BLOCK_UPDATE); || ^
+cannot find symbol || this.level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), || ^
+cannot find symbol || if (stack.isEmpty()) { || ^
+incompatible types: net.minecraftforge.fluids.Fluid cannot be converted to net.minecraft.fluid.Fluid || return !InfinityWhatConfig.isFluidAllowed(ForgeRegistries.FLUIDS.getKey(stack.getFluid())); || ^
+cannot find symbol || if (this.level == null || this.level.isClientSide) { || ^
+cannot find symbol || if (this.level == null || this.level.isClientSide) { || ^
+cannot find symbol || boolean active = this.outputEnabled && !this.tank.isEmpty() && isRedstoneAllowed(); || ^
+cannot find symbol || if (this.level == null || this.level.isClientSide || this.tank.isEmpty()) { || ^
+cannot find symbol || if (this.level == null || this.level.isClientSide || this.tank.isEmpty()) { || ^
+cannot find symbol || if (this.level == null || this.level.isClientSide || this.tank.isEmpty()) { || ^
+cannot find symbol || BlockPos neighborPos = this.worldPosition.relative(direction); || ^
+cannot find symbol || if (!this.level.isLoaded(neighborPos)) { || ^
+cannot find symbol || TileEntity neighbor = this.level.getBlockEntity(neighborPos); || ^
+cannot find symbol || for (int tank = 0; tank < target.getTanks(); tank++) { || ^
+cannot find symbol || if (target.isFluidValid(tank, this.tank)) { || ^
+cannot find symbol || long remaining = infiniteSource ? rate : Math.min(rate, this.tank.getAmount()); || ^
+cannot find symbol || target.fill(offer, IFluidHandler.FluidAction.EXECUTE))); || ^
+cannot find symbol || this.tank.shrink(accepted); || ^
+cannot find symbol || if (this.tank.isEmpty()) { || ^
+cannot find symbol || if (this.tank.isEmpty() && !infiniteSource) { || ^
+InfFluidGeneratorBlockEntity.InfiniteFluidTank is not abstract and does not override abstract method || getTankProperties() in IFluidHandler || private final class InfiniteFluidTank implements IFluidHandler {
+method does not override or implement a method from a supertype || @Override || ^
+method does not override or implement a method from a supertype || @Override || ^
+cannot find symbol || if (index != 0 || InfFluidGeneratorBlockEntity.this.tank.isEmpty()) { || ^
+cannot find symbol || return FluidStack.EMPTY; || ^
+cannot find symbol || : InfFluidGeneratorBlockEntity.this.tank.getAmount(); || ^
+method does not override or implement a method from a supertype || @Override || ^
+method does not override or implement a method from a supertype || @Override || ^
+cannot find symbol || if (index != 0 || stack.isEmpty() || isDisallowed(stack)) { || ^
+cannot find symbol || return stored.isEmpty() || stored.isFluidEqual(stack); || ^
+cannot find symbol || if (resource.isEmpty() || isDisallowed(resource)) { || ^
+cannot find symbol || if (!stored.isEmpty() && !stored.isFluidEqual(resource)) { || ^
+cannot find symbol || return resource.getAmount(); || ^
+cannot find symbol || int current = stored.isEmpty() ? 0 : stored.getAmount(); || ^
+cannot find symbol || int current = stored.isEmpty() ? 0 : stored.getAmount(); || ^
+cannot find symbol || int accepted = Math.min(capacity - current, resource.getAmount()); || ^
+cannot find symbol || if (stored.isEmpty()) { || ^
+cannot find symbol || stored.grow(accepted); || ^
+cannot find symbol || if (resource.isEmpty() || InfFluidGeneratorBlockEntity.this.tank.isEmpty() || ^
+cannot find symbol || if (resource.isEmpty() || InfFluidGeneratorBlockEntity.this.tank.isEmpty() || ^
+cannot find symbol || return FluidStack.EMPTY; || ^
+cannot find symbol || return drain(resource.getAmount(), action); || ^
+cannot find symbol || if (stored.isEmpty() || maxDrain <= 0) { || ^
+cannot find symbol || return FluidStack.EMPTY; || ^
+cannot find symbol || int drained = Math.min(maxDrain, stored.getAmount()); || ^
+cannot find symbol || stored.shrink(drained); || ^
+cannot find symbol || if (stored.getAmount() <= 0) { || ^
+cannot find symbol || InfFluidGeneratorBlockEntity.this.tank = FluidStack.EMPTY; || ^
