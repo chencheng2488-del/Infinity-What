@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "infwhat:items/infinite_source_config_replicator"
+  }
+}
