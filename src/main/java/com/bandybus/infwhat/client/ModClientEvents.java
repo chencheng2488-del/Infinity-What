@@ -6,6 +6,7 @@ import com.bandybus.infwhat.client.screen.InfItemGeneratorScreen;
 import com.bandybus.infwhat.client.network.ClientRateResultHandler;
 import com.bandybus.infwhat.menu.ModMenuTypes;
 import com.bandybus.infwhat.network.ModNetworking;
+import com.bandybus.infwhat.network.RateRejectReason;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -26,6 +27,8 @@ public class ModClientEvents {
         event.registrar("1").playToClient(ModNetworking.OutputRateResultPayload.TYPE,
                 ModNetworking.OutputRateResultPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> ClientRateResultHandler.handle(
-                        payload.containerId(), payload.fluidGenerator(), payload.success(), payload.amount())));
+                        payload.containerId(), payload.fluidGenerator(), payload.side(),
+                        payload.success(), payload.amount(),
+                        RateRejectReason.byId(payload.reason()))));
     }
 }
