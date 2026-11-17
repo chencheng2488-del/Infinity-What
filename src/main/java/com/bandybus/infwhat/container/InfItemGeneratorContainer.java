@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.container;
 
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorTileEntity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -11,6 +12,9 @@ import net.minecraft.util.EnumFacing;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.SlotItemHandler;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Item Generator: player inventory plus a single generator slot.
@@ -29,10 +33,12 @@ public class InfItemGeneratorContainer extends Container {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorTileEntity blockEntity;
     private final net.minecraft.world.World world;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     public InfItemGeneratorContainer(InventoryPlayer playerInventory,
                                      InfItemGeneratorTileEntity tile) {
@@ -41,12 +47,16 @@ public class InfItemGeneratorContainer extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlotToContainer(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlotToContainer(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlotToContainer(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlotToContainer(slot);
         }
 
         this.generatorSlot = new GeneratorSlot(this.blockEntity,
@@ -70,12 +80,40 @@ public class InfItemGeneratorContainer extends Container {
         return this.blockEntity.isOutputEnabled();
     }
 
-    public int getOutputItemsPerTick() {
-        return this.blockEntity.getOutputItemsPerTick();
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(EnumFacing direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
     }
 
     public boolean isOutputSideEnabled(EnumFacing direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
     }
 
     public ItemStack getStoredItem() {
@@ -84,6 +122,13 @@ public class InfItemGeneratorContainer extends Container {
 
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -204,6 +249,11 @@ public class InfItemGeneratorContainer extends Container {
             this.blockEntity.toggleOutputSide(EnumFacing.values()[sideDataValue]);
             return true;
         }
+        int redstoneMode = id - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
+            return true;
+        }
         return false;
     }
 
@@ -243,8 +293,8 @@ public class InfItemGeneratorContainer extends Container {
 
         void setVisible(boolean visible) {
             this.visible = visible;
-            this.xDisplayPosition = visible ? SLOT_X : -1000;
-            this.yDisplayPosition = visible ? SLOT_Y : -1000;
+            this.xDisplayPosition = visible ? SLOT_X : -10000;
+            this.yDisplayPosition = visible ? SLOT_Y : -10000;
         }
     }
 }

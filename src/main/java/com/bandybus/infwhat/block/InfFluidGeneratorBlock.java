@@ -58,4 +58,26 @@ public class InfFluidGeneratorBlock extends BlockContainer {
         }
         return true;
     }
+
+    @Override
+    public boolean hasComparatorInputOverride() {
+        return true;
+    }
+
+    @Override
+    public int getComparatorInputOverride(World worldIn, BlockPos pos) {
+        TileEntity tileEntity = worldIn.getTileEntity(pos);
+        return tileEntity instanceof InfFluidGeneratorTileEntity
+                ? ((InfFluidGeneratorTileEntity) tileEntity).getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void onNeighborBlockChange(World worldIn, BlockPos pos, IBlockState state,
+                                      Block neighborBlock) {
+        super.onNeighborBlockChange(worldIn, pos, state, neighborBlock);
+        if (!worldIn.isRemote && worldIn.getTileEntity(pos) instanceof InfFluidGeneratorTileEntity) {
+            ((InfFluidGeneratorTileEntity) worldIn.getTileEntity(pos)).wakeOutput();
+        }
+    }
 }

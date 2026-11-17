@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.container;
 
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorTileEntity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -9,9 +10,13 @@ import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.IFluidHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Fluid Generator. The machine has no item slots; a synthetic
@@ -27,6 +32,7 @@ public class InfFluidGeneratorContainer extends Container {
     public static final int BUTTON_TOGGLE_OUTPUT = 0;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
     public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private static final int PLAYER_SLOTS = 27;
     private static final int HOTBAR_SLOTS = 9;
@@ -34,6 +40,7 @@ public class InfFluidGeneratorContainer extends Container {
 
     private final InfFluidGeneratorTileEntity blockEntity;
     private final net.minecraft.world.World world;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     public InfFluidGeneratorContainer(InventoryPlayer playerInventory,
                                       InfFluidGeneratorTileEntity tile) {
@@ -42,12 +49,16 @@ public class InfFluidGeneratorContainer extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlotToContainer(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlotToContainer(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlotToContainer(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlotToContainer(slot);
         }
 
         this.addSlotToContainer(new FluidSyntheticSlot(-100, -100));
@@ -57,8 +68,67 @@ public class InfFluidGeneratorContainer extends Container {
         return this.blockEntity;
     }
 
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
+    }
+
+    public FluidStack getFluidStack() {
+        return this.blockEntity.getStoredFluid();
+    }
+
+    public boolean isInfinite() {
+        return this.blockEntity.isInfinite();
+    }
+
+    public long getAmount() {
+        return this.blockEntity.getStoredAmount();
+    }
+
+    public boolean isOutputEnabled() {
+        return this.blockEntity.isOutputEnabled();
+    }
+
+    public long getSideRateMb(EnumFacing direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
     public boolean isOutputSideEnabled(EnumFacing direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public float getFillRatio() {
+        return this.blockEntity.getFillRatio();
     }
 
     @Override
@@ -151,6 +221,11 @@ public class InfFluidGeneratorContainer extends Container {
         int sideDataValue = id - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < EnumFacing.values().length) {
             this.blockEntity.toggleOutputSide(EnumFacing.values()[sideDataValue]);
+            return true;
+        }
+        int redstoneMode = id - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;
