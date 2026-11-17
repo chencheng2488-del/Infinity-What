@@ -1,0 +1,7 @@
+// 1.20.1	2026-09-27T16:14:56.23355689	Block States: infwhat
+d8f3dd3b59322c4d78135d1f72ba9b8bc00930ec assets/infwhat/blockstates/inf_fluid_generator.json
+4611c0cf3b90e72a2753bdc05a47f6fa1c7a836e assets/infwhat/blockstates/inf_item_generator.json
+ec123867f38235860898d0dbdabaf8198823a6ed assets/infwhat/models/block/inf_fluid_generator.json
+9715eb78701ed1b4277046122ea875d7f4ad95d0 assets/infwhat/models/block/inf_item_generator.json
+61f38730d65a342a1a821eaed983677bdef398c9 assets/infwhat/models/item/inf_fluid_generator.json
+420f7d33d096ff2b9a33d5410daca78dd6a1dbcb assets/infwhat/models/item/inf_item_generator.json
