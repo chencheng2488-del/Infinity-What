@@ -3,28 +3,30 @@ package com.bandybus.infwhat.block;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorBlockEntity;
 import com.bandybus.infwhat.block.entity.ModBlockEntities;
 import com.bandybus.infwhat.item.ModItems;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
-import com.mojang.serialization.MapCodec;
 
 import javax.annotation.Nullable;
 
 /**
  * The Infinity Item Generator block. It mirrors the Infinity Fluid Generator: right-clicking
- * opens a small UI, while every side exposes a Forge {@code IItemHandler} capability so pipe
- * mods can pull from it. The server tick handles only the explicitly configured active output;
- * redstone does not affect this block.
+ * opens a small UI, while every side exposes a NeoForge {@code ResourceHandler<ItemResource>}
+ * capability so pipe mods can pull from it. The server tick handles only the explicitly
+ * configured active output, gated by the per-generator redstone mode.
  */
 public class InfItemGeneratorBlock extends BaseEntityBlock {
     public static final MapCodec<InfItemGeneratorBlock> CODEC = simpleCodec(InfItemGeneratorBlock::new);
@@ -58,6 +60,28 @@ public class InfItemGeneratorBlock extends BaseEntityBlock {
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_ITEM_GENERATOR.get(),
                 InfItemGeneratorBlockEntity::serverTick);
+    }
+
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+                                   @Nullable Orientation orientation, boolean isMoving) {
+        super.neighborChanged(state, level, pos, block, orientation, isMoving);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof InfItemGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos, Direction direction) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfItemGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
     }
 
     @Override
