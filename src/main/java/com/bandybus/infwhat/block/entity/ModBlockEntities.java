@@ -29,11 +29,11 @@ public class ModBlockEntities {
         // 每个面都暴露同一个储罐/槽位，供管道、AE2 等模组访问。
         FluidStorage.SIDED.registerForBlockEntities(
                 (blockEntity, direction) -> blockEntity instanceof InfFluidGeneratorBlockEntity generator
-                        ? generator.getFluidStorage() : null,
+                        ? generator.getFluidHandler() : null,
                 INF_FLUID_GENERATOR);
         ItemStorage.SIDED.registerForBlockEntities(
                 (blockEntity, direction) -> blockEntity instanceof InfItemGeneratorBlockEntity generator
-                        ? generator.getItemStorage() : null,
+                        ? generator.getItemHandler() : null,
                 INF_ITEM_GENERATOR);
     }
 }
