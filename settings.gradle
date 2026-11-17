@@ -1,0 +1,12 @@
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Forge'
+            url = 'https://maven.minecraftforge.net'
+        }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'InfWh Forge 1.15.2'
