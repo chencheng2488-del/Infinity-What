@@ -1,0 +1,49 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3.10'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin: 'eclipse'
+
+version = '2.2.0'
+group = 'com.bandybus.infwhat'
+archivesBaseName = 'infwhat-1.12-forge'
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+
+// 1.12 只发布 ForgeGradle 2 的 userdev，不能使用 1.12.2 的 FG3 构建。
+minecraft {
+    version = '1.12-14.21.1.2443'
+    runDir = 'run'
+    mappings = 'stable_39'
+}
+
+dependencies {
+    // Compile-only: the Thaumcraft integration is loaded only when Thaumcraft is present, and the
+    // library is never packaged into the mod. The jar is kept out of version control in libs/.
+    compileOnly files('libs/Thaumcraft-1.12.2-6.1.BETA26.jar')
+}
+
+jar {
+    manifest {
+        attributes([
+                "Specification-Title"     : "infwhat",
+                "Specification-Vendor"    : "bandybus",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : "${version}",
+                "Implementation-Vendor"   : "bandybus",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
