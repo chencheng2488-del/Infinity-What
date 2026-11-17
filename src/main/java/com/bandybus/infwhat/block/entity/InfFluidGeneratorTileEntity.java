@@ -1,17 +1,15 @@
 package com.bandybus.infwhat.block.entity;
 
-import com.bandybus.infwhat.api.IConfigurableMachine;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
-import com.bandybus.infwhat.core.SourceOutputSettings;
+import com.bandybus.infwhat.container.InfFluidGeneratorContainer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
@@ -19,6 +17,7 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 
 /**
  * Stores a single fluid type. When the infinite source switch is enabled, inserting any allowed
@@ -29,29 +28,70 @@ import javax.annotation.Nullable;
  * capability reports {@link Integer#MAX_VALUE} mB while infinite. The GUI presents the
  * conceptual amount as {@code Long.MAX_VALUE B} (buckets, 1 B = 1000 mB).
  */
-public class InfFluidGeneratorTileEntity extends TileEntity
-        implements ITickable, IConfigurableMachine {
+public class InfFluidGeneratorTileEntity extends TileEntity implements ITickable {
 
     private static final String KEY_TANK = "Tank";
     private static final String KEY_INFINITE = "Infinite";
     private static final String KEY_OUTPUT_ENABLED = "OutputEnabled";
     private static final String KEY_OUTPUT_SIDES = "OutputSides";
-    private static final String KEY_OUTPUT_RATE_MB = "OutputRateMb";
-    private static final String KEY_OUTPUT_RATE_INDEX = "OutputRateIndex";
-    /** Card profile key; the tile's own saved rate keeps the legacy {@code Mb} suffix. */
-    private static final String KEY_CARD_OUTPUT_RATE = "OutputRate";
-    public static final long MAX_OUTPUT_RATE_MB = (long) Integer.MAX_VALUE * 1000L;
+    private static final String KEY_REDSTONE_MODE = "RedstoneMode";
+    private static final String KEY_PULSE_ON = "PulseOnTicks";
+    private static final String KEY_PULSE_OFF = "PulseOffTicks";
+    private static final String KEY_BATCH_SIZE = "BatchSize";
+    /** Legacy single-rate keys, only read for 2.1.x saves. */
+    private static final String KEY_LEGACY_OUTPUT_RATE_MB = "OutputRateMb";
+    private static final String KEY_LEGACY_OUTPUT_RATE_INDEX = "OutputRateIndex";
+    private static final String KEY_DATA_VERSION = "InfDataVersion";
+    private static final int DATA_VERSION = 2;
+    private static final int SIDE_COUNT = EnumFacing.VALUES.length;
+    private static final int ALL_SIDES = (1 << SIDE_COUNT) - 1;
+    private static final String[] SIDE_RATE_KEYS = createSideRateKeys();
+    private static final long DEFAULT_OUTPUT_RATE_MB = 1_000L;
+    public static final long MAX_OUTPUT_RATE_MB = (long) Integer.MAX_VALUE * 1_000L;
+    public static final int DEFAULT_PULSE_TICKS = 20;
+    public static final int MIN_PULSE_TICKS = 1;
+    public static final int MAX_PULSE_TICKS = 12000;
+    public static final int DEFAULT_BATCH_SIZE = 1;
+    public static final int MIN_BATCH_SIZE = 1;
+    public static final int MAX_BATCH_SIZE = 64;
 
     /** Stored fluid; {@code null} means empty. While infinite the amount is only a placeholder. */
     private FluidStack tank;
     private boolean infinite;
-    /** Shared output switch, face mask and per-face rate. */
-    private final SourceOutputSettings output =
-            new SourceOutputSettings(1000L, 1L, MAX_OUTPUT_RATE_MB);
+    private boolean outputEnabled;
+    private int outputSideMask = ALL_SIDES;
+    private RedstoneMode redstoneMode = RedstoneMode.ALWAYS;
+    private int pulseOnTicks = DEFAULT_PULSE_TICKS;
+    private int pulseOffTicks = DEFAULT_PULSE_TICKS;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+    private int batchCounter;
+    private final OutputStatus outputStatus = new OutputStatus();
+    private int pushStartSide;
+    private boolean wasOutputActive;
+    /** Per-side output rate in mB/tick; 0 means the side produces nothing. */
+    private final long[] sideRates = new long[SIDE_COUNT];
+    /** Last non-zero rate per side, so toggling a side back on restores a useful value. */
+    private final long[] lastNonZeroRates = new long[SIDE_COUNT];
 
     private final IFluidHandler fluidHandler = new InfiniteFluidTank();
 
     public InfFluidGeneratorTileEntity() {
+        Arrays.fill(this.sideRates, DEFAULT_OUTPUT_RATE_MB);
+        Arrays.fill(this.lastNonZeroRates, DEFAULT_OUTPUT_RATE_MB);
+    }
+
+    private static String[] createSideRateKeys() {
+        String[] keys = new String[EnumFacing.VALUES.length];
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            String name = direction.getName();
+            keys[direction.getIndex()] = "SideRate"
+                    + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        }
+        return keys;
+    }
+
+    private static int sideIndex(EnumFacing direction) {
+        return direction.getIndex();
     }
 
     // ------------------------------------------------------------------
@@ -90,75 +130,310 @@ public class InfFluidGeneratorTileEntity extends TileEntity
         return this.infinite && this.tank != null && InfinityWhatConfig.infiniteEnabled();
     }
 
+    /** Display amount: Long.MAX_VALUE buckets when infinite, otherwise the stored mB amount. */
     public long getStoredAmount() {
         return effectivelyInfinite() ? Long.MAX_VALUE : (this.tank == null ? 0L : this.tank.amount);
     }
 
     public boolean isOutputEnabled() {
-        return this.output.isEnabled();
+        return this.outputEnabled;
     }
 
     public void setOutputEnabled(boolean enabled) {
-        if (this.output.isEnabled() == enabled) {
+        if (this.outputEnabled == enabled) {
             return;
         }
-        this.output.setEnabled(enabled);
+        this.outputEnabled = enabled;
         markUpdated();
     }
 
     public boolean isOutputSideEnabled(EnumFacing direction) {
-        return this.output.isSideEnabled(direction);
+        return (this.outputSideMask & (1 << direction.getIndex())) != 0;
     }
 
     public void toggleOutputSide(EnumFacing direction) {
-        this.output.toggleSide(direction);
-        markUpdated();
-    }
-
-    public long getOutputAmountPerTick() {
-        return this.output.getRate();
-    }
-
-    public void setOutputAmountPerTick(long millibuckets) {
-        if (this.output.getRate() == millibuckets) {
+        int index = sideIndex(direction);
+        boolean enabling = !isOutputSideEnabled(direction);
+        long restoredRate = this.sideRates[index];
+        if (enabling && restoredRate <= 0L) {
+            restoredRate = this.lastNonZeroRates[index] > 0L
+                    ? this.lastNonZeroRates[index] : DEFAULT_OUTPUT_RATE_MB;
+        }
+        if (enabling
+                && getTotalEffectiveRateMb() + restoredRate > InfinityWhatConfig.maxFluidTotalRateMb()) {
             return;
         }
-        this.output.setRate(millibuckets);
+        this.outputSideMask ^= 1 << index;
+        if (enabling && this.sideRates[index] <= 0L) {
+            this.sideRates[index] = restoredRate;
+        }
         markUpdated();
+    }
+
+    /** Rate configured for one side, in mB/tick. 0 means the side produces nothing. */
+    public long getSideRateMb(EnumFacing direction) {
+        return this.sideRates[sideIndex(direction)];
+    }
+
+    /** Rate actually used for one side; a disabled side always reports 0. */
+    public long getEffectiveSideRateMb(EnumFacing direction) {
+        return isOutputSideEnabled(direction) ? this.sideRates[sideIndex(direction)] : 0L;
+    }
+
+    /** Sum of the effective per-side rates. */
+    public long getTotalEffectiveRateMb() {
+        long total = 0L;
+        for (int i = 0; i < this.sideRates.length; i++) {
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += this.sideRates[i];
+            }
+        }
+        return total;
+    }
+
+    /** The common rate when all six sides share one value, otherwise -1. */
+    public long getUniformSideRateMb() {
+        long first = this.sideRates[0];
+        for (int i = 1; i < this.sideRates.length; i++) {
+            if (this.sideRates[i] != first) {
+                return -1L;
+            }
+        }
+        return first;
+    }
+
+    public boolean hasMixedSideRates() {
+        return getUniformSideRateMb() < 0L;
+    }
+
+    /**
+     * Sets one side's rate. Returns false without changing anything when the value is outside
+     * the server limits or would push the total above the configured cap.
+     */
+    public boolean setSideRateMb(EnumFacing direction, long millibuckets) {
+        if (millibuckets < 0L || millibuckets > InfinityWhatConfig.maxFluidRatePerSideMb()) {
+            return false;
+        }
+        int index = sideIndex(direction);
+        if (this.sideRates[index] == millibuckets) {
+            return true;
+        }
+        long newTotal = getTotalEffectiveRateMb();
+        if (isOutputSideEnabled(direction)) {
+            newTotal = newTotal - getEffectiveSideRateMb(direction) + millibuckets;
+        }
+        if (newTotal > InfinityWhatConfig.maxFluidTotalRateMb()) {
+            return false;
+        }
+        this.sideRates[index] = millibuckets;
+        if (millibuckets > 0L) {
+            this.lastNonZeroRates[index] = millibuckets;
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Applies one rate to all six sides, as the 2.2 phase-1 GUI does. */
+    public boolean setUniformSideRateMb(long millibuckets) {
+        long[] rates = new long[this.sideRates.length];
+        Arrays.fill(rates, millibuckets);
+        return applyFullConfiguration(this.outputEnabled, this.outputSideMask, rates);
     }
 
     public int getOutputSideMask() {
-        return this.output.getSideMask();
+        return this.outputSideMask;
     }
 
-    public void applyOutputConfiguration(boolean enabled, int sideMask, long rateMb) {
-        this.output.apply(enabled, sideMask, rateMb);
+    public RedstoneMode getRedstoneMode() {
+        return this.redstoneMode;
+    }
+
+    public void setRedstoneMode(RedstoneMode mode) {
+        if (mode == null || this.redstoneMode == mode) {
+            return;
+        }
+        this.redstoneMode = mode;
         markUpdated();
     }
 
-    // ------------------------------------------------------------------
-    // Configuration card snapshot
-    // ------------------------------------------------------------------
-
-    @Override
-    public String getConfigurationType() {
-        return "fluid";
+    public int getPulseOnTicks() {
+        return this.pulseOnTicks;
     }
 
-    @Override
-    public NBTTagCompound writeConfiguration() {
-        NBTTagCompound configuration = new NBTTagCompound();
-        configuration.setBoolean(KEY_OUTPUT_ENABLED, isOutputEnabled());
-        configuration.setInteger(KEY_OUTPUT_SIDES, getOutputSideMask());
-        configuration.setLong(KEY_CARD_OUTPUT_RATE, getOutputAmountPerTick());
-        return configuration;
+    public int getPulseOffTicks() {
+        return this.pulseOffTicks;
     }
 
-    @Override
-    public void applyConfiguration(NBTTagCompound configuration) {
-        applyOutputConfiguration(configuration.getBoolean(KEY_OUTPUT_ENABLED),
-                configuration.getInteger(KEY_OUTPUT_SIDES),
-                configuration.getLong(KEY_CARD_OUTPUT_RATE));
+    /** Sets both pulse phases; returns false without changing anything when out of range. */
+    public boolean setPulseTicks(int onTicks, int offTicks) {
+        if (onTicks < MIN_PULSE_TICKS || onTicks > MAX_PULSE_TICKS
+                || offTicks < MIN_PULSE_TICKS || offTicks > MAX_PULSE_TICKS) {
+            return false;
+        }
+        if (this.pulseOnTicks == onTicks && this.pulseOffTicks == offTicks) {
+            return true;
+        }
+        this.pulseOnTicks = onTicks;
+        this.pulseOffTicks = offTicks;
+        markUpdated();
+        return true;
+    }
+
+    /**
+     * Whether the redstone gate currently allows output. {@code PULSE} ignores the incoming
+     * signal and runs on its own work/stop cycle; the cycle is offset by the block position so
+     * neighbouring generators do not all fire on the same tick.
+     */
+    public boolean isRedstoneAllowed() {
+        if (this.world == null) {
+            return this.redstoneMode == RedstoneMode.ALWAYS;
+        }
+        switch (this.redstoneMode) {
+            case HIGH:
+                return this.world.isBlockPowered(this.pos);
+            case LOW:
+                return !this.world.isBlockPowered(this.pos);
+            case PULSE:
+                long period = (long) this.pulseOnTicks + this.pulseOffTicks;
+                long phase = Math.floorMod(
+                        this.world.getTotalWorldTime() + this.pos.toLong(), period);
+                return phase < this.pulseOnTicks;
+            case ALWAYS:
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Comparator strength: 0 while disabled or gated, otherwise 1-15 proportional to the
+     * configured output in buckets per tick.
+     */
+    public int getComparatorOutput() {
+        if (!this.outputEnabled || !isRedstoneAllowed()) {
+            return 0;
+        }
+        long total = getTotalEffectiveRateMb();
+        if (total <= 0L) {
+            return 0;
+        }
+        long buckets = Math.max(1L, total / 1_000L);
+        return (int) Math.min(15L, buckets);
+    }
+
+    /**
+     * Replaces the whole output configuration in one step. Everything is validated before any
+     * field is written, so a rejected paste can never leave a half-applied configuration.
+     */
+    public boolean applyFullConfiguration(boolean enabled, int sideMask, long[] rates) {
+        if (rates == null || rates.length != this.sideRates.length) {
+            return false;
+        }
+        int mask = sideMask & ALL_SIDES;
+        long maxPerSide = InfinityWhatConfig.maxFluidRatePerSideMb();
+        long[] validated = new long[rates.length];
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if (rates[i] < 0L || rates[i] > maxPerSide) {
+                return false;
+            }
+            validated[i] = rates[i];
+            if ((mask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total > InfinityWhatConfig.maxFluidTotalRateMb()) {
+            return false;
+        }
+        this.outputEnabled = enabled;
+        this.outputSideMask = mask;
+        for (int i = 0; i < validated.length; i++) {
+            this.sideRates[i] = validated[i];
+            if (validated[i] > 0L) {
+                this.lastNonZeroRates[i] = validated[i];
+            }
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Legacy global-rate entry point kept for old cards; all six sides get the same rate. */
+    public boolean applyOutputConfiguration(boolean enabled, int sideMask, long rateMb) {
+        long[] rates = new long[this.sideRates.length];
+        Arrays.fill(rates, Math.max(1L, rateMb));
+        return applyFullConfiguration(enabled, sideMask, rates);
+    }
+
+    /** Applies only the output switch and side mask; rates and redstone stay put. */
+    public boolean applyOutputState(boolean enabled, int sideMask) {
+        int mask = sideMask & ALL_SIDES;
+        if (this.outputEnabled == enabled && this.outputSideMask == mask) {
+            return true;
+        }
+        this.outputEnabled = enabled;
+        this.outputSideMask = mask;
+        markUpdated();
+        return true;
+    }
+
+    /** Applies only per-side rates, validated against the current side mask and server limits. */
+    public boolean applyRates(long[] rates) {
+        if (rates == null || rates.length != this.sideRates.length) {
+            return false;
+        }
+        long maxPerSide = InfinityWhatConfig.maxFluidRatePerSideMb();
+        long[] validated = new long[rates.length];
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if (rates[i] < 0L || rates[i] > maxPerSide) {
+                return false;
+            }
+            validated[i] = rates[i];
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total > InfinityWhatConfig.maxFluidTotalRateMb()) {
+            return false;
+        }
+        for (int i = 0; i < validated.length; i++) {
+            this.sideRates[i] = validated[i];
+            if (validated[i] > 0L) {
+                this.lastNonZeroRates[i] = validated[i];
+            }
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Applies only the redstone mode and pulse timing. */
+    public boolean applyRedstoneConfiguration(RedstoneMode mode, int onTicks, int offTicks) {
+        if (mode == null || onTicks < MIN_PULSE_TICKS || onTicks > MAX_PULSE_TICKS
+                || offTicks < MIN_PULSE_TICKS || offTicks > MAX_PULSE_TICKS) {
+            return false;
+        }
+        this.redstoneMode = mode;
+        this.pulseOnTicks = onTicks;
+        this.pulseOffTicks = offTicks;
+        markUpdated();
+        return true;
+    }
+
+    public int getBatchSize() {
+        return this.batchSize;
+    }
+
+    /** Sets how many ticks of output are grouped into one burst; 1 keeps per-tick output. */
+    public boolean setBatchSize(int size) {
+        if (size < MIN_BATCH_SIZE || size > MAX_BATCH_SIZE) {
+            return false;
+        }
+        if (this.batchSize == size) {
+            return true;
+        }
+        this.batchSize = size;
+        this.batchCounter = 0;
+        markUpdated();
+        return true;
     }
 
     public void clearFluid() {
@@ -184,6 +459,10 @@ public class InfFluidGeneratorTileEntity extends TileEntity
         return Math.min(1.0F, (float) this.tank.amount / (float) capacity);
     }
 
+    /**
+     * The tank exposed to the bucket interaction in the GUI. This is the same handler that is
+     * published through the Forge fluid capability.
+     */
     public IFluidHandler getFluidHandler() {
         return this.fluidHandler;
     }
@@ -200,10 +479,18 @@ public class InfFluidGeneratorTileEntity extends TileEntity
             this.tank.writeToNBT(tankTag);
             compound.setTag(KEY_TANK, tankTag);
         }
+        compound.setInteger(KEY_DATA_VERSION, DATA_VERSION);
         compound.setBoolean(KEY_INFINITE, this.infinite);
-        compound.setBoolean(KEY_OUTPUT_ENABLED, this.output.isEnabled());
-        compound.setInteger(KEY_OUTPUT_SIDES, this.output.getSideMask());
-        compound.setLong(KEY_OUTPUT_RATE_MB, this.output.getRate());
+        compound.setBoolean(KEY_OUTPUT_ENABLED, this.outputEnabled);
+        compound.setInteger(KEY_OUTPUT_SIDES, this.outputSideMask);
+        compound.setInteger(KEY_REDSTONE_MODE, this.redstoneMode.ordinal());
+        compound.setInteger(KEY_PULSE_ON, this.pulseOnTicks);
+        compound.setInteger(KEY_PULSE_OFF, this.pulseOffTicks);
+        compound.setInteger(KEY_BATCH_SIZE, this.batchSize);
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            int index = sideIndex(direction);
+            compound.setLong(SIDE_RATE_KEYS[index], this.sideRates[index]);
+        }
         return compound;
     }
 
@@ -219,20 +506,94 @@ public class InfFluidGeneratorTileEntity extends TileEntity
             }
         }
         this.infinite = compound.getBoolean(KEY_INFINITE) && this.tank != null;
-        this.output.setEnabled(compound.getBoolean(KEY_OUTPUT_ENABLED));
-        this.output.setSideMask(compound.hasKey(KEY_OUTPUT_SIDES, 3)
-                ? compound.getInteger(KEY_OUTPUT_SIDES) : SourceOutputSettings.ALL_SIDES);
-        if (compound.hasKey(KEY_OUTPUT_RATE_MB, 4)) {
-            this.output.setRate(compound.getLong(KEY_OUTPUT_RATE_MB));
-        } else if (compound.hasKey(KEY_OUTPUT_RATE_INDEX, 3)) {
-            // Migrate worlds saved by the previous preset-based release.
-            long[] legacyRates = {1L, 10L, 100L, 1000L, 10000L, 100000L, 1000000L,
-                    10000000L, 100000000L, 1000000000L};
+        this.outputEnabled = compound.getBoolean(KEY_OUTPUT_ENABLED);
+        this.redstoneMode = RedstoneMode.byId(compound.getInteger(KEY_REDSTONE_MODE));
+        this.pulseOnTicks = clampPulseTicks(compound, KEY_PULSE_ON);
+        this.pulseOffTicks = clampPulseTicks(compound, KEY_PULSE_OFF);
+        this.batchSize = Math.max(MIN_BATCH_SIZE,
+                Math.min(MAX_BATCH_SIZE, compound.getInteger(KEY_BATCH_SIZE)));
+        this.batchCounter = 0;
+        loadOutputRates(compound);
+    }
+
+    private static int clampPulseTicks(NBTTagCompound compound, String key) {
+        if (!compound.hasKey(key, 3)) {
+            return DEFAULT_PULSE_TICKS;
+        }
+        return Math.max(MIN_PULSE_TICKS, Math.min(MAX_PULSE_TICKS, compound.getInteger(key)));
+    }
+
+    /**
+     * Reads the six per-side rates, migrating 2.1.x saves that only stored one global rate.
+     * This runs on the client as well (update tags reuse readFromNBT), so it must stay side-effect free.
+     */
+    private void loadOutputRates(NBTTagCompound compound) {
+        int dataVersion = compound.hasKey(KEY_DATA_VERSION, 3)
+                ? compound.getInteger(KEY_DATA_VERSION) : 1;
+        int legacyMask = (compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                ? compound.getInteger(KEY_OUTPUT_SIDES) : ALL_SIDES) & ALL_SIDES;
+        long legacyRate = readLegacyRate(compound);
+
+        long[] loaded = new long[this.sideRates.length];
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            int index = sideIndex(direction);
+            loaded[index] = dataVersion >= DATA_VERSION
+                    ? (compound.hasKey(SIDE_RATE_KEYS[index], 4)
+                            ? compound.getLong(SIDE_RATE_KEYS[index]) : legacyRate)
+                    : legacyRate;
+        }
+
+        this.outputSideMask = (dataVersion >= DATA_VERSION
+                ? (compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                        ? compound.getInteger(KEY_OUTPUT_SIDES) : ALL_SIDES)
+                : legacyMask) & ALL_SIDES;
+        long maxPerSide = InfinityWhatConfig.maxFluidRatePerSideMb();
+        for (int i = 0; i < loaded.length; i++) {
+            loaded[i] = Math.max(0L, Math.min(maxPerSide, loaded[i]));
+        }
+        clampTotalRate(loaded);
+        for (int i = 0; i < loaded.length; i++) {
+            this.sideRates[i] = loaded[i];
+            this.lastNonZeroRates[i] = loaded[i] > 0L ? loaded[i] : DEFAULT_OUTPUT_RATE_MB;
+        }
+    }
+
+    /** Reads the 2.1.x global rate, including the older preset-index format. */
+    private static long readLegacyRate(NBTTagCompound compound) {
+        if (compound.hasKey(KEY_LEGACY_OUTPUT_RATE_MB, 4)) {
+            return Math.max(1L, Math.min(MAX_OUTPUT_RATE_MB,
+                    compound.getLong(KEY_LEGACY_OUTPUT_RATE_MB)));
+        }
+        if (compound.hasKey(KEY_LEGACY_OUTPUT_RATE_INDEX, 3)) {
+            long[] legacyRates = {1L, 10L, 100L, 1_000L, 10_000L, 100_000L, 1_000_000L,
+                    10_000_000L, 100_000_000L, 1_000_000_000L};
             int index = Math.max(0, Math.min(legacyRates.length - 1,
-                    compound.getInteger(KEY_OUTPUT_RATE_INDEX)));
-            this.output.setRate(legacyRates[index]);
-        } else {
-            this.output.setRate(1000L);
+                    compound.getInteger(KEY_LEGACY_OUTPUT_RATE_INDEX)));
+            return legacyRates[index];
+        }
+        return DEFAULT_OUTPUT_RATE_MB;
+    }
+
+    /** Reduces enabled sides in a fixed order when a lowered config cap is below the saved total. */
+    private void clampTotalRate(long[] rates) {
+        long maxTotal = InfinityWhatConfig.maxFluidTotalRateMb();
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total <= maxTotal) {
+            return;
+        }
+        long overflow = total - maxTotal;
+        for (int i = 0; i < rates.length && overflow > 0; i++) {
+            if ((this.outputSideMask & (1 << i)) == 0) {
+                continue;
+            }
+            long reduction = Math.min(rates[i], overflow);
+            rates[i] -= reduction;
+            overflow -= reduction;
         }
     }
 
@@ -292,21 +653,61 @@ public class InfFluidGeneratorTileEntity extends TileEntity
         if (this.world == null || this.world.isRemote) {
             return;
         }
-        if (this.output.isEnabled() && this.tank != null) {
-            this.pushToNeighbors();
+        this.outputStatus.tick();
+        boolean active = this.outputEnabled && this.tank != null && isRedstoneAllowed();
+        if (!active) {
+            this.wasOutputActive = false;
+            return;
+        }
+        if (!this.wasOutputActive) {
+            this.wasOutputActive = true;
+            this.outputStatus.wake();
+        }
+        if (getTotalEffectiveRateMb() <= 0L) {
+            this.outputStatus.notifyViewers(this, this::isViewingMenu, OutputStatus.NO_SIDES);
+            return;
+        }
+        if (!this.outputStatus.canAttempt()) {
+            return;
+        }
+        if (++this.batchCounter >= this.batchSize) {
+            int batch = this.batchSize;
+            this.batchCounter = 0;
+            int outcome = OutputStatus.NONE;
+            for (int i = 0; i < batch; i++) {
+                outcome = OutputStatus.merge(outcome, pushToNeighbors());
+            }
+            this.outputStatus.record(outcome);
+            this.outputStatus.notifyViewers(this, this::isViewingMenu, outcome);
         }
     }
 
-    private void pushToNeighbors() {
+    /** Clears the retry backoff so the next tick attempts output again (neighbor/config change). */
+    public void wakeOutput() {
+        this.outputStatus.wake();
+    }
+
+    private boolean isViewingMenu(net.minecraft.inventory.Container menu) {
+        return menu instanceof InfFluidGeneratorContainer
+                && ((InfFluidGeneratorContainer) menu).getTileEntity() == this;
+    }
+
+    /**
+     * @return {@link OutputStatus#OK} if anything was accepted, otherwise full/rejected/none.
+     */
+    private int pushToNeighbors() {
         if (this.world == null || this.world.isRemote || this.tank == null) {
-            return;
+            return OutputStatus.NONE;
         }
 
         boolean infiniteSource = effectivelyInfinite();
         boolean changed = false;
-        long rate = this.getOutputAmountPerTick();
-        for (EnumFacing direction : EnumFacing.values()) {
-            if (!isOutputSideEnabled(direction)) {
+        int result = OutputStatus.NONE;
+        EnumFacing[] directions = EnumFacing.VALUES;
+        for (int offset = 0; offset < directions.length; offset++) {
+            EnumFacing direction = directions[(this.pushStartSide + offset) % directions.length];
+            long rate = getEffectiveSideRateMb(direction);
+            if (rate <= 0L) {
                 continue;
             }
             BlockPos neighborPos = this.pos.offset(direction);
@@ -322,7 +723,19 @@ public class InfFluidGeneratorTileEntity extends TileEntity
             if (target == null) {
                 continue;
             }
+            boolean validTank = false;
+            IFluidTankProperties[] properties = target.getTankProperties();
+            if (properties != null) {
+                for (int tankIndex = 0; tankIndex < properties.length; tankIndex++) {
+                    IFluidTankProperties property = properties[tankIndex];
+                    if (property != null && property.canFillFluidType(this.tank)) {
+                        validTank = true;
+                        break;
+                    }
+                }
+            }
 
+            long acceptedForSide = 0L;
             long remaining = infiniteSource ? rate : Math.min(rate, this.tank.amount);
             while (remaining > 0) {
                 int offered = (int) Math.min((long) Integer.MAX_VALUE, remaining);
@@ -331,6 +744,7 @@ public class InfFluidGeneratorTileEntity extends TileEntity
                 if (accepted <= 0) {
                     break;
                 }
+                acceptedForSide += accepted;
                 remaining -= accepted;
                 if (!infiniteSource) {
                     this.tank.amount -= accepted;
@@ -345,13 +759,24 @@ public class InfFluidGeneratorTileEntity extends TileEntity
                     break;
                 }
             }
+            if (acceptedForSide > 0) {
+                result = OutputStatus.OK;
+            } else if (validTank) {
+                if (result != OutputStatus.OK) {
+                    result = OutputStatus.FULL;
+                }
+            } else if (result == OutputStatus.NONE) {
+                result = OutputStatus.REJECTED;
+            }
             if (this.tank == null && !infiniteSource) {
                 break;
             }
         }
+        this.pushStartSide = (this.pushStartSide + 1) % directions.length;
         if (changed) {
             markUpdated();
         }
+        return result;
     }
 
     // ------------------------------------------------------------------
@@ -378,13 +803,13 @@ public class InfFluidGeneratorTileEntity extends TileEntity
 
             if (InfinityWhatConfig.infiniteEnabled()) {
                 if (doFill) {
+                    // Keep one unit of the type and flip the source to infinite.
                     FluidStack single = resource.copy();
                     single.amount = 1;
                     InfFluidGeneratorTileEntity.this.tank = single;
                     InfFluidGeneratorTileEntity.this.infinite = true;
                     markUpdated();
                 }
-                // The spec says the amount jumps to the max immediately, so accept it all.
                 return resource.amount;
             }
 

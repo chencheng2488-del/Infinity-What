@@ -1,5 +1,6 @@
 package com.bandybus.infwhat.container;
 
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfItemGeneratorTileEntity;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
 import net.minecraft.entity.player.EntityPlayer;
@@ -10,15 +11,18 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Item Generator: the player inventory plus a single generator
- * slot. The slot always holds exactly one item; while infinite mode is enabled the item is an
- * unlimited source. Manual retrieval is handled in {@link #slotClick}: left-click gives one item,
- * shift+left-click gives a full stack, and the source is never depleted.
+ * slot. The slot always holds exactly one item; while infinite mode is enabled the item becomes
+ * an infinite source. Manual retrieval is handled in {@link #slotClick}: left-click gives one
+ * item, shift+left-click gives a full stack, and the source is never depleted.
  */
 public class InfItemGeneratorContainer extends Container {
 
@@ -32,10 +36,12 @@ public class InfItemGeneratorContainer extends Container {
     public static final int BUTTON_TOGGLE_INFINITE = 0;
     public static final int BUTTON_TOGGLE_OUTPUT = 1;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 2;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private final InfItemGeneratorTileEntity blockEntity;
     private final net.minecraft.world.World world;
     private final GeneratorSlot generatorSlot;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<VisibilitySlot>();
 
     public InfItemGeneratorContainer(InventoryPlayer playerInventory,
                                      InfItemGeneratorTileEntity tile) {
@@ -44,12 +50,16 @@ public class InfItemGeneratorContainer extends Container {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlotToContainer(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlotToContainer(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlotToContainer(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlotToContainer(slot);
         }
 
         this.generatorSlot = new GeneratorSlot(this.blockEntity,
@@ -73,12 +83,44 @@ public class InfItemGeneratorContainer extends Container {
         return this.blockEntity.isOutputEnabled();
     }
 
-    public int getOutputItemsPerTick() {
-        return this.blockEntity.getOutputItemsPerTick();
+    public int getUniformSideRate() {
+        return this.blockEntity.getUniformSideRate();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public int getSideRate(EnumFacing direction) {
+        return this.blockEntity.getSideRate(direction);
+    }
+
+    public long getTotalEffectiveRate() {
+        return this.blockEntity.getTotalEffectiveRate();
+    }
+
+    public int getOutputSideMask() {
+        return this.blockEntity.getOutputSideMask();
     }
 
     public boolean isOutputSideEnabled(EnumFacing direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
     }
 
     public ItemStack getStoredItem() {
@@ -88,6 +130,13 @@ public class InfItemGeneratorContainer extends Container {
     /** Hides the stored-item slot while the screen shows the separate I/O settings page. */
     public void setGeneratorSlotVisible(boolean visible) {
         this.generatorSlot.setVisible(visible);
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     @Override
@@ -209,8 +258,13 @@ public class InfItemGeneratorContainer extends Container {
             return true;
         }
         int sideDataValue = id - BUTTON_TOGGLE_SIDE_BASE;
-        if (sideDataValue >= 0 && sideDataValue < EnumFacing.values().length) {
+        if (sideDataValue >= 0 && sideDataValue < EnumFacing.VALUES.length) {
             this.blockEntity.toggleOutputSide(EnumFacing.byIndex(sideDataValue));
+            return true;
+        }
+        int redstoneMode = id - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;

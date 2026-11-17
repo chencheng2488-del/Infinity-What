@@ -1,8 +1,8 @@
 package com.bandybus.infwhat.block.entity;
 
-import com.bandybus.infwhat.api.IConfigurableMachine;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.config.InfinityWhatConfig;
-import com.bandybus.infwhat.core.SourceOutputSettings;
+import com.bandybus.infwhat.container.InfItemGeneratorContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
@@ -10,21 +10,23 @@ import net.minecraft.network.play.server.SPacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 
 /**
- * Infinity Item Generator. Its GUI-controlled infinite-mode switch turns the stored item into an
+ * Infinity Item Generator. Its GUI-controlled infinite-mode switch makes the stored item an
  * unlimited source. Active output is independently configurable and can be limited to selected
- * sides; the standard Forge {@link IItemHandler} capability remains available to pipes and
- * import buses on every side.
+ * sides; the standard Forge {@link IItemHandler} capability remains available to pipes/import
+ * buses on every side.
  *
  * <p>ENGINE LIMIT: {@link ItemStack} stores its count as an {@code int}, so a true
  * {@code Long.MAX_VALUE} count cannot be stored. The internal slot always holds exactly one
@@ -32,27 +34,69 @@ import javax.annotation.Nullable;
  * largest amount the engine can express) so pipes see an effectively unbounded amount, and
  * extraction never depletes. The GUI shows the item name/id instead of an infinity badge.
  */
-public class InfItemGeneratorTileEntity extends TileEntity
-        implements ITickable, IConfigurableMachine {
+public class InfItemGeneratorTileEntity extends TileEntity implements ITickable {
 
     private static final String KEY_ITEM = "Item";
     private static final String KEY_INFINITE_MODE = "InfiniteMode";
     private static final String KEY_OUTPUT_ENABLED = "OutputEnabled";
     private static final String KEY_OUTPUT_SIDES = "OutputSides";
-    private static final String KEY_OUTPUT_RATE = "OutputRate";
+    private static final String KEY_REDSTONE_MODE = "RedstoneMode";
+    private static final String KEY_PULSE_ON = "PulseOnTicks";
+    private static final String KEY_PULSE_OFF = "PulseOffTicks";
+    private static final String KEY_BATCH_SIZE = "BatchSize";
+    /** Legacy single-rate key, only read for 2.1.x saves. */
+    private static final String KEY_LEGACY_OUTPUT_RATE = "OutputRate";
+    private static final String KEY_DATA_VERSION = "InfDataVersion";
+    private static final int DATA_VERSION = 2;
+    private static final int SIDE_COUNT = EnumFacing.VALUES.length;
+    private static final int ALL_SIDES = (1 << SIDE_COUNT) - 1;
+    private static final String[] SIDE_RATE_KEYS = createSideRateKeys();
 
     public static final int DEFAULT_OUTPUT_RATE = 8;
+    public static final int DEFAULT_PULSE_TICKS = 20;
+    public static final int MIN_PULSE_TICKS = 1;
+    public static final int MAX_PULSE_TICKS = 12000;
+    public static final int DEFAULT_BATCH_SIZE = 1;
+    public static final int MIN_BATCH_SIZE = 1;
+    public static final int MAX_BATCH_SIZE = 64;
 
     private boolean infiniteModeEnabled;
-    /** Shared output switch, face mask and per-face rate. */
-    private final SourceOutputSettings output =
-            new SourceOutputSettings(DEFAULT_OUTPUT_RATE, 1L, Integer.MAX_VALUE);
+    private boolean outputEnabled;
+    private int outputSideMask = ALL_SIDES;
+    private RedstoneMode redstoneMode = RedstoneMode.ALWAYS;
+    private int pulseOnTicks = DEFAULT_PULSE_TICKS;
+    private int pulseOffTicks = DEFAULT_PULSE_TICKS;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+    private int batchCounter;
+    private final OutputStatus outputStatus = new OutputStatus();
+    private int pushStartSide;
+    private boolean wasOutputActive;
+    /** Per-side output rate in items/tick; 0 means the side produces nothing. */
+    private final int[] sideRates = new int[SIDE_COUNT];
+    /** Last non-zero rate per side, so toggling a side back on restores a useful value. */
+    private final int[] lastNonZeroRates = new int[SIDE_COUNT];
 
     private final GeneratorItemHandler itemHandler = new GeneratorItemHandler();
     /** Capability view: reports the huge infinite count instead of the single template item. */
     private final IItemHandler capabilityHandler = new GeneratorCapabilityHandler();
 
     public InfItemGeneratorTileEntity() {
+        Arrays.fill(this.sideRates, DEFAULT_OUTPUT_RATE);
+        Arrays.fill(this.lastNonZeroRates, DEFAULT_OUTPUT_RATE);
+    }
+
+    private static String[] createSideRateKeys() {
+        String[] keys = new String[EnumFacing.VALUES.length];
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            String name = direction.getName();
+            keys[direction.getIndex()] = "SideRate"
+                    + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        }
+        return keys;
+    }
+
+    private static int sideIndex(EnumFacing direction) {
+        return direction.getIndex();
     }
 
     // ------------------------------------------------------------------
@@ -80,7 +124,7 @@ public class InfItemGeneratorTileEntity extends TileEntity
 
     /** The stored item, always a single unit internally. */
     public ItemStack getStoredItem() {
-        return this.itemHandler.getStackInSlot(0);
+        return this.itemHandler.getInternalStack();
     }
 
     public boolean isInfinite() {
@@ -100,79 +144,316 @@ public class InfItemGeneratorTileEntity extends TileEntity
     }
 
     public boolean isOutputEnabled() {
-        return this.output.isEnabled();
+        return this.outputEnabled;
     }
 
     public void setOutputEnabled(boolean enabled) {
-        if (this.output.isEnabled() == enabled) {
+        if (this.outputEnabled == enabled) {
             return;
         }
-        this.output.setEnabled(enabled);
+        this.outputEnabled = enabled;
         markUpdated();
     }
 
     public boolean isOutputSideEnabled(EnumFacing direction) {
-        return this.output.isSideEnabled(direction);
+        return (this.outputSideMask & (1 << direction.getIndex())) != 0;
     }
 
     public void toggleOutputSide(EnumFacing direction) {
-        this.output.toggleSide(direction);
-        markUpdated();
-    }
-
-    public int getOutputItemsPerTick() {
-        return (int) this.output.getRate();
-    }
-
-    public void setOutputItemsPerTick(int amount) {
-        if (this.output.getRate() == amount) {
+        int index = sideIndex(direction);
+        boolean enabling = !isOutputSideEnabled(direction);
+        int restoredRate = this.sideRates[index];
+        if (enabling && restoredRate <= 0) {
+            restoredRate = this.lastNonZeroRates[index] > 0
+                    ? this.lastNonZeroRates[index] : DEFAULT_OUTPUT_RATE;
+        }
+        if (enabling
+                && getTotalEffectiveRate() + restoredRate > InfinityWhatConfig.maxItemTotalRate()) {
             return;
         }
-        this.output.setRate(amount);
+        this.outputSideMask ^= 1 << index;
+        if (enabling && this.sideRates[index] <= 0) {
+            this.sideRates[index] = restoredRate;
+        }
         markUpdated();
+    }
+
+    /** Rate configured for one side, in items/tick. 0 means the side produces nothing. */
+    public int getSideRate(EnumFacing direction) {
+        return this.sideRates[sideIndex(direction)];
+    }
+
+    /** Rate actually used for one side; a disabled side always reports 0. */
+    public int getEffectiveSideRate(EnumFacing direction) {
+        return isOutputSideEnabled(direction) ? this.sideRates[sideIndex(direction)] : 0;
+    }
+
+    /** Sum of the effective per-side rates. */
+    public long getTotalEffectiveRate() {
+        long total = 0L;
+        for (int i = 0; i < this.sideRates.length; i++) {
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += this.sideRates[i];
+            }
+        }
+        return total;
+    }
+
+    /** The common rate when all six sides share one value, otherwise -1. */
+    public int getUniformSideRate() {
+        int first = this.sideRates[0];
+        for (int i = 1; i < this.sideRates.length; i++) {
+            if (this.sideRates[i] != first) {
+                return -1;
+            }
+        }
+        return first;
+    }
+
+    public boolean hasMixedSideRates() {
+        return getUniformSideRate() < 0;
+    }
+
+    /**
+     * Sets one side's rate. Returns false without changing anything when the value is outside
+     * the server limits or would push the total above the configured cap.
+     */
+    public boolean setSideRate(EnumFacing direction, int amount) {
+        if (amount < 0 || amount > InfinityWhatConfig.maxItemRatePerSide()) {
+            return false;
+        }
+        int index = sideIndex(direction);
+        if (this.sideRates[index] == amount) {
+            return true;
+        }
+        long newTotal = getTotalEffectiveRate();
+        if (isOutputSideEnabled(direction)) {
+            newTotal = newTotal - getEffectiveSideRate(direction) + amount;
+        }
+        if (newTotal > InfinityWhatConfig.maxItemTotalRate()) {
+            return false;
+        }
+        this.sideRates[index] = amount;
+        if (amount > 0) {
+            this.lastNonZeroRates[index] = amount;
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Applies one rate to all six sides, as the 2.2 phase-1 GUI does. */
+    public boolean setUniformSideRate(int amount) {
+        int[] rates = new int[this.sideRates.length];
+        Arrays.fill(rates, amount);
+        return applyFullConfiguration(this.outputEnabled, this.outputSideMask, rates,
+                this.infiniteModeEnabled);
     }
 
     public int getOutputSideMask() {
-        return this.output.getSideMask();
+        return this.outputSideMask;
     }
 
-    public void applyOutputConfiguration(boolean enabled, int sideMask, int amountPerTick,
-                                         boolean infiniteMode) {
-        this.output.apply(enabled, sideMask, amountPerTick);
-        this.infiniteModeEnabled = infiniteMode;
+    public RedstoneMode getRedstoneMode() {
+        return this.redstoneMode;
+    }
+
+    public void setRedstoneMode(RedstoneMode mode) {
+        if (mode == null || this.redstoneMode == mode) {
+            return;
+        }
+        this.redstoneMode = mode;
         markUpdated();
     }
 
-    // ------------------------------------------------------------------
-    // Configuration card snapshot
-    // ------------------------------------------------------------------
-
-    @Override
-    public String getConfigurationType() {
-        return "item";
+    public int getPulseOnTicks() {
+        return this.pulseOnTicks;
     }
 
-    @Override
-    public NBTTagCompound writeConfiguration() {
-        NBTTagCompound configuration = new NBTTagCompound();
-        configuration.setBoolean(KEY_OUTPUT_ENABLED, isOutputEnabled());
-        configuration.setInteger(KEY_OUTPUT_SIDES, getOutputSideMask());
-        configuration.setInteger(KEY_OUTPUT_RATE, getOutputItemsPerTick());
-        configuration.setBoolean(KEY_INFINITE_MODE, isInfiniteModeEnabled());
-        return configuration;
+    public int getPulseOffTicks() {
+        return this.pulseOffTicks;
     }
 
-    @Override
-    public void applyConfiguration(NBTTagCompound configuration) {
-        applyOutputConfiguration(configuration.getBoolean(KEY_OUTPUT_ENABLED),
-                configuration.getInteger(KEY_OUTPUT_SIDES),
-                configuration.getInteger(KEY_OUTPUT_RATE),
-                configuration.getBoolean(KEY_INFINITE_MODE));
+    /** Sets both pulse phases; returns false without changing anything when out of range. */
+    public boolean setPulseTicks(int onTicks, int offTicks) {
+        if (onTicks < MIN_PULSE_TICKS || onTicks > MAX_PULSE_TICKS
+                || offTicks < MIN_PULSE_TICKS || offTicks > MAX_PULSE_TICKS) {
+            return false;
+        }
+        if (this.pulseOnTicks == onTicks && this.pulseOffTicks == offTicks) {
+            return true;
+        }
+        this.pulseOnTicks = onTicks;
+        this.pulseOffTicks = offTicks;
+        markUpdated();
+        return true;
     }
 
+    /**
+     * Whether the redstone gate currently allows output. {@code PULSE} ignores the incoming
+     * signal and runs on its own work/stop cycle; the cycle is offset by the block position so
+     * neighbouring generators do not all fire on the same tick.
+     */
+    public boolean isRedstoneAllowed() {
+        if (this.world == null) {
+            return this.redstoneMode == RedstoneMode.ALWAYS;
+        }
+        switch (this.redstoneMode) {
+            case HIGH:
+                return this.world.isBlockPowered(this.pos);
+            case LOW:
+                return !this.world.isBlockPowered(this.pos);
+            case PULSE:
+                long period = (long) this.pulseOnTicks + this.pulseOffTicks;
+                long phase = Math.floorMod(
+                        this.world.getTotalWorldTime() + this.pos.toLong(), period);
+                return phase < this.pulseOnTicks;
+            case ALWAYS:
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Comparator strength: 0 while disabled or gated, otherwise 1-15 proportional to the
+     * configured item output per tick.
+     */
+    public int getComparatorOutput() {
+        if (!this.outputEnabled || !isRedstoneAllowed()) {
+            return 0;
+        }
+        long total = getTotalEffectiveRate();
+        if (total <= 0L) {
+            return 0;
+        }
+        return (int) Math.min(15L, total);
+    }
+
+    /**
+     * Replaces the whole output configuration in one step. Everything is validated before any
+     * field is written, so a rejected paste can never leave a half-applied configuration.
+     */
+    public boolean applyFullConfiguration(boolean enabled, int sideMask, int[] rates,
+                                          boolean infiniteMode) {
+        if (rates == null || rates.length != this.sideRates.length) {
+            return false;
+        }
+        int mask = sideMask & ALL_SIDES;
+        int maxPerSide = (int) Math.min(Integer.MAX_VALUE, InfinityWhatConfig.maxItemRatePerSide());
+        int[] validated = new int[rates.length];
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if (rates[i] < 0 || rates[i] > maxPerSide) {
+                return false;
+            }
+            validated[i] = rates[i];
+            if ((mask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total > InfinityWhatConfig.maxItemTotalRate()) {
+            return false;
+        }
+        this.outputEnabled = enabled;
+        this.outputSideMask = mask;
+        this.infiniteModeEnabled = infiniteMode;
+        for (int i = 0; i < validated.length; i++) {
+            this.sideRates[i] = validated[i];
+            if (validated[i] > 0) {
+                this.lastNonZeroRates[i] = validated[i];
+            }
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Legacy global-rate entry point kept for old cards; all six sides get the same rate. */
+    public boolean applyOutputConfiguration(boolean enabled, int sideMask, int amountPerTick,
+                                            boolean infiniteMode) {
+        int[] rates = new int[this.sideRates.length];
+        Arrays.fill(rates, Math.max(1, amountPerTick));
+        return applyFullConfiguration(enabled, sideMask, rates, infiniteMode);
+    }
+
+    /** Applies only the output switch and side mask; rates, infinite mode and redstone stay put. */
+    public boolean applyOutputState(boolean enabled, int sideMask) {
+        int mask = sideMask & ALL_SIDES;
+        if (this.outputEnabled == enabled && this.outputSideMask == mask) {
+            return true;
+        }
+        this.outputEnabled = enabled;
+        this.outputSideMask = mask;
+        markUpdated();
+        return true;
+    }
+
+    /** Applies only per-side rates, validated against the current side mask and server limits. */
+    public boolean applyRates(int[] rates) {
+        if (rates == null || rates.length != this.sideRates.length) {
+            return false;
+        }
+        int maxPerSide = (int) Math.min(Integer.MAX_VALUE, InfinityWhatConfig.maxItemRatePerSide());
+        int[] validated = new int[rates.length];
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if (rates[i] < 0 || rates[i] > maxPerSide) {
+                return false;
+            }
+            validated[i] = rates[i];
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total > InfinityWhatConfig.maxItemTotalRate()) {
+            return false;
+        }
+        for (int i = 0; i < validated.length; i++) {
+            this.sideRates[i] = validated[i];
+            if (validated[i] > 0) {
+                this.lastNonZeroRates[i] = validated[i];
+            }
+        }
+        markUpdated();
+        return true;
+    }
+
+    /** Applies only the redstone mode and pulse timing. */
+    public boolean applyRedstoneConfiguration(RedstoneMode mode, int onTicks, int offTicks) {
+        if (mode == null || onTicks < MIN_PULSE_TICKS || onTicks > MAX_PULSE_TICKS
+                || offTicks < MIN_PULSE_TICKS || offTicks > MAX_PULSE_TICKS) {
+            return false;
+        }
+        this.redstoneMode = mode;
+        this.pulseOnTicks = onTicks;
+        this.pulseOffTicks = offTicks;
+        markUpdated();
+        return true;
+    }
+
+    public int getBatchSize() {
+        return this.batchSize;
+    }
+
+    /** Sets how many ticks of output are grouped into one burst; 1 keeps per-tick output. */
+    public boolean setBatchSize(int size) {
+        if (size < MIN_BATCH_SIZE || size > MAX_BATCH_SIZE) {
+            return false;
+        }
+        if (this.batchSize == size) {
+            return true;
+        }
+        this.batchSize = size;
+        this.batchCounter = 0;
+        markUpdated();
+        return true;
+    }
+
+    /**
+     * The generator is only infinite while its GUI switch is enabled, it holds an item, and the
+     * shared infinite-source balance switch is enabled.
+     */
     private boolean effectivelyInfinite() {
         return this.infiniteModeEnabled
-                && !this.itemHandler.getStackInSlot(0).isEmpty()
+                && !this.itemHandler.getInternalStack().isEmpty()
                 && InfinityWhatConfig.infiniteEnabled();
     }
 
@@ -189,19 +470,63 @@ public class InfItemGeneratorTileEntity extends TileEntity
         if (this.world == null || this.world.isRemote) {
             return;
         }
-        if (effectivelyInfinite() && this.output.isEnabled()) {
-            this.pushToNeighbors();
+        this.outputStatus.tick();
+
+        boolean active = effectivelyInfinite() && this.outputEnabled && isRedstoneAllowed();
+        if (!active) {
+            this.wasOutputActive = false;
+            return;
+        }
+        if (!this.wasOutputActive) {
+            this.wasOutputActive = true;
+            this.outputStatus.wake();
+        }
+        if (getTotalEffectiveRate() <= 0L) {
+            this.outputStatus.notifyViewers(this, this::isViewingMenu, OutputStatus.NO_SIDES);
+            return;
+        }
+        if (!this.outputStatus.canAttempt()) {
+            return;
+        }
+        if (++this.batchCounter >= this.batchSize) {
+            int batch = this.batchSize;
+            this.batchCounter = 0;
+            int outcome = OutputStatus.NONE;
+            for (int i = 0; i < batch; i++) {
+                outcome = OutputStatus.merge(outcome, pushToNeighbors());
+            }
+            this.outputStatus.record(outcome);
+            this.outputStatus.notifyViewers(this, this::isViewingMenu, outcome);
         }
     }
 
-    private void pushToNeighbors() {
-        ItemStack stored = this.itemHandler.getStackInSlot(0);
+    /** Clears the retry backoff so the next tick attempts output again (neighbor/config change). */
+    public void wakeOutput() {
+        this.outputStatus.wake();
+    }
+
+    private boolean isViewingMenu(net.minecraft.inventory.Container menu) {
+        return menu instanceof InfItemGeneratorContainer
+                && ((InfItemGeneratorContainer) menu).getTileEntity() == this;
+    }
+
+    /**
+     * Tries to insert the generated item into selected adjacent blocks that expose a Forge
+     * {@link IItemHandler} (chests, hoppers, pipe endpoints, ...).
+     *
+     * @return {@link OutputStatus#OK} if anything was accepted, otherwise full/rejected/none.
+     */
+    private int pushToNeighbors() {
+        ItemStack stored = this.itemHandler.getInternalStack();
         if (stored.isEmpty() || this.world == null) {
-            return;
+            return OutputStatus.NONE;
         }
-        int count = (int) this.output.getRate();
-        for (EnumFacing direction : EnumFacing.values()) {
-            if (!isOutputSideEnabled(direction)) {
+        int result = OutputStatus.NONE;
+        EnumFacing[] directions = EnumFacing.VALUES;
+        for (int offset = 0; offset < directions.length; offset++) {
+            EnumFacing direction = directions[(this.pushStartSide + offset) % directions.length];
+            int count = getEffectiveSideRate(direction);
+            if (count <= 0) {
                 continue;
             }
             BlockPos neighborPos = this.pos.offset(direction);
@@ -217,11 +542,29 @@ public class InfItemGeneratorTileEntity extends TileEntity
             if (target == null) {
                 continue;
             }
-            // Copy (so NBT survives); the helper splits the count across the target's slots.
+            boolean validSlot = false;
+            for (int slot = 0; slot < target.getSlots(); slot++) {
+                if (target.isItemValid(slot, stored)) {
+                    validSlot = true;
+                    break;
+                }
+            }
             ItemStack offer = stored.copy();
             offer.setCount(count);
-            ItemHandlerHelper.insertItemStacked(target, offer, false);
+            ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, offer, false);
+            int accepted = count - remainder.getCount();
+            if (accepted > 0) {
+                result = OutputStatus.OK;
+            } else if (validSlot) {
+                if (result != OutputStatus.OK) {
+                    result = OutputStatus.FULL;
+                }
+            } else if (result == OutputStatus.NONE) {
+                result = OutputStatus.REJECTED;
+            }
         }
+        this.pushStartSide = (this.pushStartSide + 1) % directions.length;
+        return result;
     }
 
     // ------------------------------------------------------------------
@@ -231,34 +574,115 @@ public class InfItemGeneratorTileEntity extends TileEntity
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound compound) {
         super.writeToNBT(compound);
-        ItemStack stored = this.itemHandler.getStackInSlot(0);
+        ItemStack stored = this.itemHandler.getInternalStack();
         if (!stored.isEmpty()) {
             compound.setTag(KEY_ITEM, stored.writeToNBT(new NBTTagCompound()));
         }
+        compound.setInteger(KEY_DATA_VERSION, DATA_VERSION);
         compound.setBoolean(KEY_INFINITE_MODE, this.infiniteModeEnabled);
-        compound.setBoolean(KEY_OUTPUT_ENABLED, this.output.isEnabled());
-        compound.setInteger(KEY_OUTPUT_SIDES, this.output.getSideMask());
-        compound.setInteger(KEY_OUTPUT_RATE, (int) this.output.getRate());
+        compound.setBoolean(KEY_OUTPUT_ENABLED, this.outputEnabled);
+        compound.setInteger(KEY_OUTPUT_SIDES, this.outputSideMask);
+        compound.setInteger(KEY_REDSTONE_MODE, this.redstoneMode.ordinal());
+        compound.setInteger(KEY_PULSE_ON, this.pulseOnTicks);
+        compound.setInteger(KEY_PULSE_OFF, this.pulseOffTicks);
+        compound.setInteger(KEY_BATCH_SIZE, this.batchSize);
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            int index = sideIndex(direction);
+            compound.setInteger(SIDE_RATE_KEYS[index], this.sideRates[index]);
+        }
         return compound;
     }
 
     @Override
     public void readFromNBT(NBTTagCompound compound) {
         super.readFromNBT(compound);
-        this.itemHandler.setStackInSlot(0, ItemStack.EMPTY);
+        this.itemHandler.setInternalEmpty();
         if (compound.hasKey(KEY_ITEM, 10)) {
             ItemStack loaded = new ItemStack(compound.getCompoundTag(KEY_ITEM));
             if (!loaded.isEmpty()) {
                 loaded.setCount(1);
-                this.itemHandler.setStackInSlot(0, loaded);
+                this.itemHandler.setInternalStack(loaded);
             }
         }
         this.infiniteModeEnabled = compound.getBoolean(KEY_INFINITE_MODE);
-        this.output.setEnabled(compound.getBoolean(KEY_OUTPUT_ENABLED));
-        this.output.setSideMask(compound.hasKey(KEY_OUTPUT_SIDES, 3)
-                ? compound.getInteger(KEY_OUTPUT_SIDES) : SourceOutputSettings.ALL_SIDES);
-        this.output.setRate(compound.hasKey(KEY_OUTPUT_RATE, 3)
-                ? compound.getInteger(KEY_OUTPUT_RATE) : DEFAULT_OUTPUT_RATE);
+        this.outputEnabled = compound.getBoolean(KEY_OUTPUT_ENABLED);
+        this.redstoneMode = RedstoneMode.byId(compound.getInteger(KEY_REDSTONE_MODE));
+        this.pulseOnTicks = clampPulseTicks(compound, KEY_PULSE_ON);
+        this.pulseOffTicks = clampPulseTicks(compound, KEY_PULSE_OFF);
+        this.batchSize = Math.max(MIN_BATCH_SIZE,
+                Math.min(MAX_BATCH_SIZE, compound.getInteger(KEY_BATCH_SIZE)));
+        this.batchCounter = 0;
+        loadOutputRates(compound);
+    }
+
+    private static int clampPulseTicks(NBTTagCompound compound, String key) {
+        if (!compound.hasKey(key, 3)) {
+            return DEFAULT_PULSE_TICKS;
+        }
+        return Math.max(MIN_PULSE_TICKS, Math.min(MAX_PULSE_TICKS, compound.getInteger(key)));
+    }
+
+    /**
+     * Reads the six per-side rates, migrating 2.1.x saves that only stored one global rate.
+     * This runs on the client as well (update tags reuse readFromNBT), so it must stay side-effect free.
+     */
+    private void loadOutputRates(NBTTagCompound compound) {
+        int dataVersion = compound.hasKey(KEY_DATA_VERSION, 3)
+                ? compound.getInteger(KEY_DATA_VERSION) : 1;
+        int legacyMask = (compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                ? compound.getInteger(KEY_OUTPUT_SIDES) : ALL_SIDES) & ALL_SIDES;
+        boolean hasLegacyRate = compound.hasKey(KEY_LEGACY_OUTPUT_RATE, 3);
+        int legacyRate = Math.max(1, hasLegacyRate
+                ? compound.getInteger(KEY_LEGACY_OUTPUT_RATE) : DEFAULT_OUTPUT_RATE);
+
+        int[] loaded = new int[this.sideRates.length];
+        for (EnumFacing direction : EnumFacing.VALUES) {
+            int index = sideIndex(direction);
+            if (dataVersion >= DATA_VERSION) {
+                loaded[index] = compound.hasKey(SIDE_RATE_KEYS[index], 3)
+                        ? compound.getInteger(SIDE_RATE_KEYS[index])
+                        : (hasLegacyRate ? legacyRate : DEFAULT_OUTPUT_RATE);
+            } else {
+                loaded[index] = legacyRate;
+            }
+        }
+
+        this.outputSideMask = (dataVersion >= DATA_VERSION
+                ? (compound.hasKey(KEY_OUTPUT_SIDES, 3)
+                        ? compound.getInteger(KEY_OUTPUT_SIDES) : ALL_SIDES)
+                : legacyMask) & ALL_SIDES;
+        int maxPerSide = (int) Math.min(Integer.MAX_VALUE, InfinityWhatConfig.maxItemRatePerSide());
+        for (int i = 0; i < loaded.length; i++) {
+            loaded[i] = Math.max(0, Math.min(maxPerSide, loaded[i]));
+        }
+        clampTotalRate(loaded);
+        for (int i = 0; i < loaded.length; i++) {
+            this.sideRates[i] = loaded[i];
+            this.lastNonZeroRates[i] = loaded[i] > 0 ? loaded[i] : DEFAULT_OUTPUT_RATE;
+        }
+    }
+
+    /** Reduces enabled sides in a fixed order when a lowered config cap is below the saved total. */
+    private void clampTotalRate(int[] rates) {
+        long maxTotal = InfinityWhatConfig.maxItemTotalRate();
+        long total = 0L;
+        for (int i = 0; i < rates.length; i++) {
+            if ((this.outputSideMask & (1 << i)) != 0) {
+                total += rates[i];
+            }
+        }
+        if (total <= maxTotal) {
+            return;
+        }
+        long overflow = total - maxTotal;
+        for (int i = 0; i < rates.length && overflow > 0; i++) {
+            if ((this.outputSideMask & (1 << i)) == 0) {
+                continue;
+            }
+            int reduction = (int) Math.min((long) rates[i], overflow);
+            rates[i] -= reduction;
+            overflow -= reduction;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -293,8 +717,13 @@ public class InfItemGeneratorTileEntity extends TileEntity
         if (stack.isEmpty() || stack.getItem() == null) {
             return null;
         }
-        net.minecraft.util.ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
         return id == null ? null : id.toString();
+    }
+
+    /** Whether this tile entity is still attached to a loaded world at its position. */
+    public boolean isUsable() {
+        return this.world != null && this.world.getTileEntity(this.pos) == this;
     }
 
     // ------------------------------------------------------------------
@@ -313,7 +742,7 @@ public class InfItemGeneratorTileEntity extends TileEntity
             if (slot != 0) {
                 return ItemStack.EMPTY;
             }
-            ItemStack stored = itemHandler.getStackInSlot(0);
+            ItemStack stored = itemHandler.getInternalStack();
             if (stored.isEmpty()) {
                 return ItemStack.EMPTY;
             }
@@ -328,7 +757,8 @@ public class InfItemGeneratorTileEntity extends TileEntity
             if (slot != 0 || stack.isEmpty()) {
                 return stack;
             }
-            if (effectivelyInfinite() || !itemHandler.getStackInSlot(0).isEmpty()) {
+            // Only one item is ever accepted, and never while the infinite source is active.
+            if (effectivelyInfinite() || !itemHandler.getInternalStack().isEmpty()) {
                 return stack;
             }
             return itemHandler.insertItem(0, stack, simulate);
@@ -339,11 +769,12 @@ public class InfItemGeneratorTileEntity extends TileEntity
             if (slot != 0 || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            ItemStack stored = itemHandler.getStackInSlot(0);
+            ItemStack stored = itemHandler.getInternalStack();
             if (stored.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             if (effectivelyInfinite()) {
+                // Unlimited source: never deplete, hand out up to one normal stack per call.
                 return ItemHandlerHelper.copyStackWithSize(stored,
                         Math.min(amount, stored.getMaxStackSize()));
             }
@@ -358,7 +789,7 @@ public class InfItemGeneratorTileEntity extends TileEntity
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             return slot == 0 && !effectivelyInfinite()
-                    && itemHandler.getStackInSlot(0).isEmpty()
+                    && itemHandler.getInternalStack().isEmpty()
                     && InfinityWhatConfig.isItemAllowed(itemId(stack));
         }
     }
@@ -373,6 +804,18 @@ public class InfItemGeneratorTileEntity extends TileEntity
             super(1);
         }
 
+        ItemStack getInternalStack() {
+            return this.stacks.get(0);
+        }
+
+        void setInternalStack(ItemStack stack) {
+            this.stacks.set(0, stack);
+        }
+
+        void setInternalEmpty() {
+            this.stacks.set(0, ItemStack.EMPTY);
+        }
+
         @Override
         public int getSlotLimit(int slot) {
             // The generator always holds exactly one template item.
@@ -381,13 +824,13 @@ public class InfItemGeneratorTileEntity extends TileEntity
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return slot == 0 && this.getStackInSlot(0).isEmpty()
+            return slot == 0 && this.getInternalStack().isEmpty()
                     && InfinityWhatConfig.isItemAllowed(itemId(stack));
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (effectivelyInfinite() || stack.isEmpty() || !this.getStackInSlot(0).isEmpty()) {
+            if (effectivelyInfinite() || stack.isEmpty() || !this.getInternalStack().isEmpty()) {
                 return stack;
             }
             return super.insertItem(slot, stack, simulate);
@@ -398,11 +841,12 @@ public class InfItemGeneratorTileEntity extends TileEntity
             if (slot != 0 || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            ItemStack existing = this.getStackInSlot(0);
+            ItemStack existing = this.getInternalStack();
             if (existing.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             if (effectivelyInfinite()) {
+                // Unlimited source: hand out up to one normal stack per call, never deplete.
                 return ItemHandlerHelper.copyStackWithSize(existing,
                         Math.min(amount, existing.getMaxStackSize()));
             }
@@ -413,10 +857,5 @@ public class InfItemGeneratorTileEntity extends TileEntity
         protected void onContentsChanged(int slot) {
             markUpdated();
         }
-    }
-
-    /** Whether this tile entity is still attached to a loaded world at its position. */
-    public boolean isUsable() {
-        return this.world != null && this.world.getTileEntity(this.pos) == this;
     }
 }

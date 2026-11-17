@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.item;
 
 import com.bandybus.infwhat.InfinityWhat;
+import com.bandybus.infwhat.integration.thaumcraft6.ThaumcraftIntegration;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -21,6 +22,8 @@ public final class ModItems {
     @SubscribeEvent
     public static void registerItems(RegistryEvent.Register<net.minecraft.item.Item> event) {
         event.getRegistry().register(INFINITE_SOURCE_CONFIG_REPLICATOR);
-        event.getRegistry().register(ARCANE_ORD_RECORD_SHARD);
+        if (ThaumcraftIntegration.isActive()) {
+            event.getRegistry().register(ARCANE_ORD_RECORD_SHARD);
+        }
     }
 }

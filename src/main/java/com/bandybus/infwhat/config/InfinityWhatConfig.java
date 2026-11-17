@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.config;
 
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -15,6 +16,7 @@ import java.util.List;
  * <ul>
  *   <li>{@code balance.enableInfiniteSource} - master switch for the infinite behaviour.</li>
  *   <li>{@code balance.finiteTankCapacity} - tank size used while the infinite switch is off.</li>
+ *   <li>{@code limits.*} - server-side per-side and total output caps.</li>
  *   <li>{@code item_filter} / {@code fluid_filter} - per-type id filters. Each has a
  *       {@code mode} (BLACKLIST by default) and an initially empty {@code list}.</li>
  * </ul>
@@ -29,9 +31,18 @@ public final class InfinityWhatConfig {
         WHITELIST
     }
 
+    private static final long DEFAULT_ITEM_TOTAL_RATE = (long) Integer.MAX_VALUE * 6L;
+    private static final long DEFAULT_FLUID_RATE_PER_SIDE_MB = (long) Integer.MAX_VALUE * 1_000L;
+    private static final long DEFAULT_FLUID_TOTAL_RATE_MB =
+            (long) Integer.MAX_VALUE * 1_000L * 6L;
+
     private static Configuration configuration;
     private static boolean infiniteEnabled = true;
     private static int finiteCapacity = 16000;
+    private static long maxItemRatePerSide = Integer.MAX_VALUE;
+    private static long maxItemTotalRate = DEFAULT_ITEM_TOTAL_RATE;
+    private static long maxFluidRatePerSideMb = DEFAULT_FLUID_RATE_PER_SIDE_MB;
+    private static long maxFluidTotalRateMb = DEFAULT_FLUID_TOTAL_RATE_MB;
     private static FilterMode itemFilterMode = FilterMode.BLACKLIST;
     private static FilterMode fluidFilterMode = FilterMode.BLACKLIST;
     private static List<String> itemFilterList = new ArrayList<String>();
@@ -58,6 +69,19 @@ public final class InfinityWhatConfig {
         finiteCapacity = configuration.getInt("finiteTankCapacity", "balance", 16000, 1,
                 Integer.MAX_VALUE, "Capacity in mB used when enableInfiniteSource is false.");
 
+        configuration.setCategoryComment("limits",
+                "Server-side output limits. Rates are per side unless stated otherwise.\n"
+                        + "The totals are the sum of all enabled sides; writes above a limit are rejected.");
+        maxItemRatePerSide = configuration.getInt("maxItemRatePerSide", "limits",
+                Integer.MAX_VALUE, 1, Integer.MAX_VALUE,
+                "Maximum item rate per side, in items per tick.");
+        maxItemTotalRate = readLong("maxItemTotalRate", DEFAULT_ITEM_TOTAL_RATE,
+                "Maximum total item rate, in items per tick.");
+        maxFluidRatePerSideMb = readLong("maxFluidRatePerSideMb", DEFAULT_FLUID_RATE_PER_SIDE_MB,
+                "Maximum fluid rate per side, in mB per tick.");
+        maxFluidTotalRateMb = readLong("maxFluidTotalRateMb", DEFAULT_FLUID_TOTAL_RATE_MB,
+                "Maximum total fluid rate, in mB per tick.");
+
         configuration.setCategoryComment("item_filter", "Item filter for the item generator.");
         itemFilterMode = readFilterMode("item_filter", "mode");
         itemFilterList = sanitize(configuration.getStringList("list", "item_filter",
@@ -83,6 +107,12 @@ public final class InfinityWhatConfig {
         if (configuration.hasChanged()) {
             configuration.save();
         }
+    }
+
+    /** Reads a long limit; the 1.12.2 Configuration API only exposes string properties. */
+    private static long readLong(String key, long defaultValue, String comment) {
+        Property property = configuration.get("limits", key, Long.toString(defaultValue), comment);
+        return Math.max(1L, property.getLong(defaultValue));
     }
 
     private static FilterMode readFilterMode(String category, String key) {
@@ -112,6 +142,22 @@ public final class InfinityWhatConfig {
 
     public static int finiteCapacity() {
         return finiteCapacity;
+    }
+
+    public static long maxItemRatePerSide() {
+        return maxItemRatePerSide;
+    }
+
+    public static long maxItemTotalRate() {
+        return maxItemTotalRate;
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return maxFluidRatePerSideMb;
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return maxFluidTotalRateMb;
     }
 
     /** Whether the given item id may be inserted into the item generator. */

@@ -32,7 +32,7 @@ public class InfinityWhat {
 
     public static final String MODID = "infwhat";
     public static final String NAME = "Infinity What";
-    public static final String VERSION = "2.1.1";
+    public static final String VERSION = "2.2.0";
 
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 

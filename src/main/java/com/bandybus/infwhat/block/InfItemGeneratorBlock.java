@@ -5,6 +5,7 @@ import com.bandybus.infwhat.block.entity.InfItemGeneratorTileEntity;
 import com.bandybus.infwhat.container.ModGuiHandler;
 import com.bandybus.infwhat.creative.ModCreativeTab;
 import com.bandybus.infwhat.item.InfiniteSourceConfigureReplicatorItem;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
@@ -54,6 +55,40 @@ public class InfItemGeneratorBlock extends BlockContainer {
     public boolean isNormalCube(IBlockState state, IBlockAccess world, BlockPos pos) {
         // Prevent a redstone line touching the machine from powering dust on its far side.
         return false;
+    }
+
+    @Override
+    public boolean hasComparatorInputOverride(IBlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getComparatorInputOverride(IBlockState state, World worldIn, BlockPos pos) {
+        TileEntity tileEntity = worldIn.getTileEntity(pos);
+        return tileEntity instanceof InfItemGeneratorTileEntity
+                ? ((InfItemGeneratorTileEntity) tileEntity).getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void onNeighborChange(IBlockAccess world, BlockPos pos, BlockPos neighbor) {
+        super.onNeighborChange(world, pos, neighbor);
+        TileEntity tileEntity = world.getTileEntity(pos);
+        if (tileEntity instanceof InfItemGeneratorTileEntity) {
+            ((InfItemGeneratorTileEntity) tileEntity).wakeOutput();
+        }
+    }
+
+    @Override
+    public void neighborChanged(IBlockState state, World worldIn, BlockPos pos, Block blockIn,
+                                BlockPos fromPos) {
+        super.neighborChanged(state, worldIn, pos, blockIn, fromPos);
+        if (!worldIn.isRemote) {
+            TileEntity tileEntity = worldIn.getTileEntity(pos);
+            if (tileEntity instanceof InfItemGeneratorTileEntity) {
+                ((InfItemGeneratorTileEntity) tileEntity).wakeOutput();
+            }
+        }
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.bandybus.infwhat.block.entity.InfFluidGeneratorTileEntity;
 import com.bandybus.infwhat.container.ModGuiHandler;
 import com.bandybus.infwhat.creative.ModCreativeTab;
 import com.bandybus.infwhat.item.InfiniteSourceConfigureReplicatorItem;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
@@ -15,6 +16,7 @@ import net.minecraft.util.EnumBlockRenderType;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
@@ -60,5 +62,39 @@ public class InfFluidGeneratorBlock extends BlockContainer {
                     worldIn, pos.getX(), pos.getY(), pos.getZ());
         }
         return true;
+    }
+
+    @Override
+    public boolean hasComparatorInputOverride(IBlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getComparatorInputOverride(IBlockState state, World worldIn, BlockPos pos) {
+        TileEntity tileEntity = worldIn.getTileEntity(pos);
+        return tileEntity instanceof InfFluidGeneratorTileEntity
+                ? ((InfFluidGeneratorTileEntity) tileEntity).getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    public void onNeighborChange(IBlockAccess world, BlockPos pos, BlockPos neighbor) {
+        super.onNeighborChange(world, pos, neighbor);
+        TileEntity tileEntity = world.getTileEntity(pos);
+        if (tileEntity instanceof InfFluidGeneratorTileEntity) {
+            ((InfFluidGeneratorTileEntity) tileEntity).wakeOutput();
+        }
+    }
+
+    @Override
+    public void neighborChanged(IBlockState state, World worldIn, BlockPos pos, Block blockIn,
+                                BlockPos fromPos) {
+        super.neighborChanged(state, worldIn, pos, blockIn, fromPos);
+        if (!worldIn.isRemote) {
+            TileEntity tileEntity = worldIn.getTileEntity(pos);
+            if (tileEntity instanceof InfFluidGeneratorTileEntity) {
+                ((InfFluidGeneratorTileEntity) tileEntity).wakeOutput();
+            }
+        }
     }
 }
