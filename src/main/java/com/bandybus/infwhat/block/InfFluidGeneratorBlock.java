@@ -10,11 +10,13 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import com.mojang.serialization.MapCodec;
 
@@ -52,6 +54,28 @@ public class InfFluidGeneratorBlock extends BaseEntityBlock {
         }
         return createTickerHelper(blockEntityType, ModBlockEntities.INF_FLUID_GENERATOR.get(),
                 InfFluidGeneratorBlockEntity::serverTick);
+    }
+
+    @Override
+    protected boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof InfFluidGeneratorBlockEntity generator
+                ? generator.getComparatorOutput() : 0;
+    }
+
+    /** A changed neighbor may free capacity or expose a new handler, so retry output immediately. */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   @Nullable Orientation orientation, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighborBlock, orientation, movedByPiston);
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof InfFluidGeneratorBlockEntity generator) {
+            generator.wakeOutput();
+        }
     }
 
     @Override
