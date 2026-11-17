@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
@@ -19,7 +20,9 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Fluid Generator. There are no item slots for the machine
@@ -37,6 +40,7 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_OUTPUT = 0;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
     public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private static final int PLAYER_SLOTS = 27;
     private static final int HOTBAR_SLOTS = 9;
@@ -45,28 +49,27 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     public static final int FLUID_SLOT_INDEX = PLAYER_SLOTS + HOTBAR_SLOTS;
 
     private final InfFluidGeneratorBlockEntity blockEntity;
-    private final BlockPos pos;
     private final Level level;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
 
-    // Client and server constructor: the block pos arrives through the extended screen handler data.
+    // Client and server constructor: receives the block pos written by getScreenOpeningData.
     public InfFluidGeneratorMenu(int containerId, Inventory playerInventory, BlockPos pos) {
-        this(containerId, playerInventory, playerInventory.player.level().getBlockEntity(pos), pos);
-    }
-
-    private InfFluidGeneratorMenu(int containerId, Inventory playerInventory, BlockEntity blockEntity, BlockPos pos) {
         super(ModMenuTypes.INF_FLUID_GENERATOR, containerId);
-        this.blockEntity = (InfFluidGeneratorBlockEntity) blockEntity;
-        this.pos = pos;
+        this.blockEntity = (InfFluidGeneratorBlockEntity) playerInventory.player.level().getBlockEntity(pos);
         this.level = playerInventory.player.level();
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         // Display-only slot over the tank. It never stores items; bucket interactions are
@@ -82,17 +85,16 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
      * possible. Without an open GUI the block only exposes its fluid storage.
      */
     @Override
-    public void clicked(int slotId, int button, ContainerInput ContainerInput, Player player) {
-        if (slotId == FLUID_SLOT_INDEX && ContainerInput == ContainerInput.PICKUP && (button == 0 || button == 1)) {
-            // The client also calls clicked() locally (MultiPlayerGameMode#handleInventoryMouseClick),
-            // so only the authoritative server side performs the transfer; the result reaches the
-            // client through the normal container/block-entity sync.
+    public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
+        if (slotId == FLUID_SLOT_INDEX && clickType == ContainerInput.PICKUP && (button == 0 || button == 1)) {
+            // The client also calls clicked() locally, so only the authoritative server side
+            // performs the transfer; the result reaches the client through the normal sync.
             if (!player.level().isClientSide()) {
                 handleFluidContainer(player);
             }
             return;
         }
-        super.clicked(slotId, button, ContainerInput, player);
+        super.clicked(slotId, button, clickType, player);
     }
 
     /**
@@ -150,7 +152,7 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return stillValid(
-                ContainerLevelAccess.create(this.level, this.pos),
+                ContainerLevelAccess.create(this.level, this.blockEntity.getBlockPos()),
                 player,
                 ModBlocks.INF_FLUID_GENERATOR);
     }
@@ -187,13 +189,14 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     }
 
     public FluidVariant getFluidVariant() {
-        return this.blockEntity.getStoredFluid();
+        return this.blockEntity.getStoredVariant();
     }
 
     public boolean isInfinite() {
         return this.blockEntity.isInfinite();
     }
 
+    /** Display amount in millibuckets; {@link Long#MAX_VALUE} while infinite. */
     public long getAmount() {
         return this.blockEntity.getStoredAmount();
     }
@@ -210,6 +213,45 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         return this.blockEntity.getOutputAmountPerTick();
     }
 
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
+    }
+
+    public long getSideRateMb(Direction direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
+    }
+
     public float getFillRatio() {
         return this.blockEntity.getFillRatio();
     }
@@ -221,17 +263,33 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         }
         if (buttonId == BUTTON_TOGGLE_OUTPUT) {
             this.blockEntity.setOutputEnabled(!this.blockEntity.isOutputEnabled());
+            syncBlockEntity(player);
             return true;
         }
         if (buttonId == BUTTON_CLEAR_FLUID) {
             this.blockEntity.clearFluid();
+            syncBlockEntity(player);
             return true;
         }
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            syncBlockEntity(player);
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
+            syncBlockEntity(player);
             return true;
         }
         return false;
+    }
+
+    /** Pushes the block entity state to the clicking player so button feedback is immediate. */
+    private void syncBlockEntity(Player player) {
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            serverPlayer.connection.send(this.blockEntity.getUpdatePacket());
+        }
     }
 }
