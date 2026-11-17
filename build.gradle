@@ -1,0 +1,55 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.gradle.userdev' version '7.0.142'
+    id 'idea'
+}
+version = mod_version
+group = mod_group_id
+base { archivesName = mod_id + "-" + project.minecraft_version + "-neoforge" }
+java.toolchain.languageVersion = JavaLanguageVersion.of(java_toolchain_version as int)
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")
+    exclude("src/generated/**/.cache")
+}
+
+// NeoForge 20.5.x 只发布 userdev，没有 ModDevGradle 需要的 moddev bundle，因此这一支使用 NeoGradle。
+runs {
+    configureEach {
+        systemProperty 'forge.logging.markers', 'REGISTRIES'
+        systemProperty 'forge.logging.console.level', 'info'
+        modSource project.sourceSets.main
+    }
+    client {
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+    }
+    server {
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        programArgument '--nogui'
+    }
+}
+
+configurations { runtimeClasspath.extendsFrom localRuntime }
+
+dependencies {
+    implementation "net.neoforged:neoforge:${project.neo_version}"
+}
+
+def generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    def replaceProperties = [
+        minecraft_version:minecraft_version, minecraft_version_range:minecraft_version_range,
+        neo_version:neo_version, neo_version_range:neo_version_range,
+        forge_version_range:neo_version_range, loader_version_range:loader_version_range,
+        mod_id:mod_id, mod_name:mod_name, mod_license:mod_license,
+        mod_version:mod_version, mod_authors:mod_authors, mod_description:mod_description
+    ]
+    inputs.properties replaceProperties
+    filteringCharset = 'UTF-8'
+    filesMatching('META-INF/neoforge.mods.toml') { expand replaceProperties }
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir(generateModMetadata)
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+processResources { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
