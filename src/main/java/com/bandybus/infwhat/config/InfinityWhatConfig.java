@@ -1,9 +1,9 @@
 package com.bandybus.infwhat.config;
 
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
@@ -15,6 +15,7 @@ import java.util.List;
  * <ul>
  *   <li>{@code balance.enableInfiniteSource} - master switch for the infinite behaviour.</li>
  *   <li>{@code balance.finiteTankCapacity} - tank size used while the infinite switch is off.</li>
+ *   <li>{@code limits} - per-side and total output caps enforced on the server.</li>
  *   <li>{@code item_filter} / {@code fluid_filter} - per-type id filters. Each has a
  *       {@code mode} ({@link FilterMode#BLACKLIST} by default) and an initially empty
  *       {@code list}. BLACKLIST rejects listed ids; WHITELIST accepts only listed ids.</li>
@@ -42,6 +43,10 @@ public class InfinityWhatConfig {
     public static class Common {
         public final ModConfigSpec.BooleanValue enableInfiniteSource;
         public final ModConfigSpec.IntValue finiteTankCapacity;
+        public final ModConfigSpec.LongValue maxItemRatePerSide;
+        public final ModConfigSpec.LongValue maxItemTotalRate;
+        public final ModConfigSpec.LongValue maxFluidRatePerSideMb;
+        public final ModConfigSpec.LongValue maxFluidTotalRateMb;
         public final ModConfigSpec.EnumValue<FilterMode> itemFilterMode;
         public final ModConfigSpec.ConfigValue<List<? extends String>> itemFilterList;
         public final ModConfigSpec.EnumValue<FilterMode> fluidFilterMode;
@@ -57,6 +62,28 @@ public class InfinityWhatConfig {
             this.finiteTankCapacity = builder
                     .comment("Capacity in mB used when enableInfiniteSource is false.")
                     .defineInRange("finiteTankCapacity", 16000, 1, Integer.MAX_VALUE);
+            builder.pop();
+
+            builder.comment("Server-side output limits. Rates are per side unless stated otherwise.",
+                            "The totals are the sum of all enabled sides; writes above a limit are rejected.")
+                    .push("limits");
+            this.maxItemRatePerSide = builder
+                    .comment("Maximum item rate per side, in items per tick.")
+                    .defineInRange("maxItemRatePerSide",
+                            (long) Integer.MAX_VALUE, 1L, (long) Integer.MAX_VALUE);
+            this.maxItemTotalRate = builder
+                    .comment("Maximum total item rate, in items per tick.")
+                    .defineInRange("maxItemTotalRate",
+                            (long) Integer.MAX_VALUE * 6L, 1L, Long.MAX_VALUE);
+            this.maxFluidRatePerSideMb = builder
+                    .comment("Maximum fluid rate per side, in mB per tick.")
+                    .defineInRange("maxFluidRatePerSideMb",
+                            (long) Integer.MAX_VALUE * 1_000L,
+                            1L, (long) Integer.MAX_VALUE * 1_000L);
+            this.maxFluidTotalRateMb = builder
+                    .comment("Maximum total fluid rate, in mB per tick.")
+                    .defineInRange("maxFluidTotalRateMb",
+                            (long) Integer.MAX_VALUE * 1_000L * 6L, 1L, Long.MAX_VALUE);
             builder.pop();
 
             builder.comment("Item filter for the item generator.").push("item_filter");
@@ -89,6 +116,22 @@ public class InfinityWhatConfig {
 
     public static int finiteCapacity() {
         return COMMON.finiteTankCapacity.get();
+    }
+
+    public static long maxItemRatePerSide() {
+        return COMMON.maxItemRatePerSide.get();
+    }
+
+    public static long maxItemTotalRate() {
+        return COMMON.maxItemTotalRate.get();
+    }
+
+    public static long maxFluidRatePerSideMb() {
+        return COMMON.maxFluidRatePerSideMb.get();
+    }
+
+    public static long maxFluidTotalRateMb() {
+        return COMMON.maxFluidTotalRateMb.get();
     }
 
     /** Whether the given item id may be inserted into the item generator. */

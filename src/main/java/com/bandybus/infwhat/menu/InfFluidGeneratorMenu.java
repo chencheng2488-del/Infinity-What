@@ -1,6 +1,7 @@
 package com.bandybus.infwhat.menu;
 
 import com.bandybus.infwhat.block.ModBlocks;
+import com.bandybus.infwhat.block.RedstoneMode;
 import com.bandybus.infwhat.block.entity.InfFluidGeneratorBlockEntity;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.Direction;
@@ -14,12 +15,22 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.fluids.FluidActionResult;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.SoundActions;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
-import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;
+import net.neoforged.neoforge.fluids.FluidType;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.access.ItemAccess;
+import net.neoforged.neoforge.transfer.fluid.FluidResource;
+import net.neoforged.neoforge.transfer.resource.ResourceStack;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Container menu for the Infinity Fluid Generator. There are no item slots for the machine
@@ -37,6 +48,7 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_OUTPUT = 0;
     public static final int BUTTON_TOGGLE_SIDE_BASE = 1;
     public static final int BUTTON_CLEAR_FLUID = 7;
+    public static final int BUTTON_REDSTONE_MODE_BASE = 8;
 
     private static final int PLAYER_SLOTS = 27;
     private static final int HOTBAR_SLOTS = 9;
@@ -46,6 +58,7 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
 
     private final InfFluidGeneratorBlockEntity blockEntity;
     private final Level level;
+    private final List<VisibilitySlot> playerSlots = new ArrayList<>();
 
     // Client constructor: receives the block pos written by NetworkHooks#openScreen.
     public InfFluidGeneratorMenu(int containerId, Inventory playerInventory, FriendlyByteBuf data) {
@@ -61,12 +74,16 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9,
-                        11 + col * 18, 99 + row * 18));
+                VisibilitySlot slot = new VisibilitySlot(playerInventory, col + row * 9 + 9,
+                        11 + col * 18, 99 + row * 18);
+                this.playerSlots.add(slot);
+                this.addSlot(slot);
             }
         }
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 11 + col * 18, 153));
+            VisibilitySlot slot = new VisibilitySlot(playerInventory, col, 11 + col * 18, 153);
+            this.playerSlots.add(slot);
+            this.addSlot(slot);
         }
 
         // Display-only slot over the tank. It never stores items; bucket interactions are
@@ -74,6 +91,13 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         // This synthetic slot is deliberately inactive and offscreen: the screen routes clicks
         // over the larger visible tank area here, but vanilla must not draw a 16x16 hover overlay.
         this.addSlot(new FluidSlot(-100, -100));
+    }
+
+    /** Hides the player inventory while a face detail page is open. */
+    public void setPlayerSlotsVisible(boolean visible) {
+        for (VisibilitySlot slot : this.playerSlots) {
+            slot.setVisible(visible);
+        }
     }
 
     /**
@@ -101,35 +125,45 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
      * container is emptied into the tank. Mouse buttons do not influence the direction.
      */
     private void handleFluidContainer(Player player) {
-        ItemStack carried = this.getCarried();
-        if (carried.isEmpty()) {
+        if (this.getCarried().isEmpty()) {
             return;
         }
-        IFluidHandler tank = this.blockEntity.getFluidHandler();
-        FluidActionResult result = FluidUtil.tryFillContainer(carried, tank, Integer.MAX_VALUE, player, true);
-        if (!result.isSuccess()) {
-            result = FluidUtil.tryEmptyContainer(carried, tank, Integer.MAX_VALUE, player, true);
-        }
-        if (!result.isSuccess()) {
+        // The cursor item is addressed through an ItemAccess so the container can transform
+        // itself (e.g. water bucket -> empty bucket) inside the transfer transaction. Only one
+        // container is converted per click; any produced overflow goes to the player inventory,
+        // matching the behaviour of the old FluidUtil container helpers.
+        ItemAccess cursorAccess = ItemAccess.forPlayerCursor(player, this).oneByOne();
+        ResourceHandler<FluidResource> containerHandler = cursorAccess.getCapability(Capabilities.Fluid.ITEM);
+        if (containerHandler == null) {
             return;
         }
-
-        ItemStack resultStack = result.getResult();
-        if (carried.getCount() <= 1) {
-            this.setCarried(resultStack);
-        } else {
-            // Only one container is converted; the rest stay on the cursor and the produced
-            // container goes to the inventory (buckets do not stack once they hold a fluid).
-            ItemStack remaining = carried.copy();
-            remaining.shrink(1);
-            ItemStack leftover = ItemHandlerHelper.insertItemStacked(
-                    new PlayerMainInvWrapper(player.getInventory()), resultStack, false);
-            if (!leftover.isEmpty()) {
-                ItemHandlerHelper.giveItemToPlayer(player, leftover);
-            }
-            this.setCarried(remaining);
+        ResourceHandler<FluidResource> tank = this.blockEntity.getResourceHandler();
+        boolean fillContainer = true;
+        ResourceStack<FluidResource> moved = ResourceHandlerUtil.moveFirst(
+                tank, containerHandler, resource -> true, Integer.MAX_VALUE, null);
+        if (moved == null) {
+            fillContainer = false;
+            moved = ResourceHandlerUtil.moveFirst(
+                    containerHandler, tank, resource -> true, Integer.MAX_VALUE, null);
         }
+        if (moved == null) {
+            return;
+        }
+        triggerSoundAndGameEvent(moved.resource(), this.level, player.position(), player, fillContainer);
         this.broadcastChanges();
+    }
+
+    /** Same feedback FluidUtil's 1.21.10+ helper produces for a container exchange. */
+    private static void triggerSoundAndGameEvent(FluidResource resource, Level level, Vec3 position,
+                                                 Player player, boolean pickup) {
+        FluidStack stack = resource.toStack(FluidType.BUCKET_VOLUME);
+        SoundEvent soundEvent = resource.getFluidType().getSound(stack,
+                pickup ? SoundActions.BUCKET_FILL : SoundActions.BUCKET_EMPTY);
+        if (soundEvent != null) {
+            level.playSound(null, position.x, position.y, position.z, soundEvent,
+                    SoundSource.BLOCKS, 1.0F, 1.0F);
+        }
+        level.gameEvent(player, pickup ? GameEvent.FLUID_PICKUP : GameEvent.FLUID_PLACE, position);
     }
 
     /** Inactive menu target used only by explicit bucket clicks routed from the screen. */
@@ -209,12 +243,40 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         return this.blockEntity.isOutputEnabled();
     }
 
+    public long getSideRateMb(Direction direction) {
+        return this.blockEntity.getSideRateMb(direction);
+    }
+
+    public long getTotalEffectiveRateMb() {
+        return this.blockEntity.getTotalEffectiveRateMb();
+    }
+
     public boolean isOutputSideEnabled(Direction direction) {
         return this.blockEntity.isOutputSideEnabled(direction);
     }
 
-    public long getOutputAmountPerTick() {
-        return this.blockEntity.getOutputAmountPerTick();
+    public RedstoneMode getRedstoneMode() {
+        return this.blockEntity.getRedstoneMode();
+    }
+
+    public int getPulseOnTicks() {
+        return this.blockEntity.getPulseOnTicks();
+    }
+
+    public int getPulseOffTicks() {
+        return this.blockEntity.getPulseOffTicks();
+    }
+
+    public int getBatchSize() {
+        return this.blockEntity.getBatchSize();
+    }
+
+    public long getUniformSideRateMb() {
+        return this.blockEntity.getUniformSideRateMb();
+    }
+
+    public boolean hasMixedSideRates() {
+        return this.blockEntity.hasMixedSideRates();
     }
 
     public float getFillRatio() {
@@ -237,6 +299,11 @@ public class InfFluidGeneratorMenu extends AbstractContainerMenu {
         int sideDataValue = buttonId - BUTTON_TOGGLE_SIDE_BASE;
         if (sideDataValue >= 0 && sideDataValue < Direction.values().length) {
             this.blockEntity.toggleOutputSide(Direction.from3DDataValue(sideDataValue));
+            return true;
+        }
+        int redstoneMode = buttonId - BUTTON_REDSTONE_MODE_BASE;
+        if (redstoneMode >= 0 && redstoneMode < RedstoneMode.values().length) {
+            this.blockEntity.setRedstoneMode(RedstoneMode.byId(redstoneMode));
             return true;
         }
         return false;
