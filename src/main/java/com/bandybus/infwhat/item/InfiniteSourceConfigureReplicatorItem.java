@@ -1,0 +1,326 @@
+package com.bandybus.infwhat.item;
+
+import com.bandybus.infwhat.InfinityWhat;
+import com.bandybus.infwhat.block.RedstoneMode;
+import com.bandybus.infwhat.block.entity.InfFluidGeneratorTileEntity;
+import com.bandybus.infwhat.block.entity.InfItemGeneratorTileEntity;
+import com.bandybus.infwhat.creative.ModCreativeTab;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
+
+import java.util.List;
+
+/** Sneak-use copies a generator configuration; regular use pastes it onto a matching generator. */
+public class InfiniteSourceConfigureReplicatorItem extends Item {
+
+    private static final String TAG_CONFIGURATION = "Configuration";
+    private static final String KEY_MODE = "PasteMode";
+    private static final String KEY_TYPE = "Type";
+    private static final String KEY_OUTPUT_ENABLED = "OutputEnabled";
+    private static final String KEY_OUTPUT_SIDES = "OutputSides";
+    private static final String KEY_REDSTONE_MODE = "RedstoneMode";
+    private static final String KEY_PULSE_ON = "PulseOnTicks";
+    private static final String KEY_PULSE_OFF = "PulseOffTicks";
+    private static final String KEY_BATCH_SIZE = "BatchSize";
+    /** Legacy single-rate key, only read from cards created before 2.2. */
+    private static final String KEY_OUTPUT_RATE = "OutputRate";
+    private static final String KEY_INFINITE_MODE = "InfiniteMode";
+    private static final String[] SIDE_RATE_KEYS = createSideRateKeys();
+
+    public InfiniteSourceConfigureReplicatorItem() {
+        this.setRegistryName(InfinityWhat.MODID, "infinite_source_config_replicator");
+        this.setUnlocalizedName(InfinityWhat.MODID + ".infinite_source_config_replicator");
+        this.setMaxStackSize(1);
+        this.setCreativeTab(ModCreativeTab.INSTANCE);
+    }
+
+    @Override
+    public EnumActionResult onItemUse(EntityPlayer player, World worldIn, BlockPos pos,
+                                      EnumHand hand, EnumFacing side,
+                                      float hitX, float hitY, float hitZ) {
+        ItemStack stack = player == null ? ItemStack.EMPTY : player.getHeldItem(hand);
+        TileEntity target = worldIn.getTileEntity(pos);
+        boolean itemTarget = target instanceof InfItemGeneratorTileEntity;
+        boolean fluidTarget = target instanceof InfFluidGeneratorTileEntity;
+        if (!itemTarget && !fluidTarget) {
+            // Sneak-use on a non-generator must not fall through to onItemRightClick.
+            return player != null && player.isSneaking()
+                    ? EnumActionResult.SUCCESS : EnumActionResult.PASS;
+        }
+
+        if (worldIn.isRemote) {
+            return EnumActionResult.SUCCESS;
+        }
+        if (player == null || stack.isEmpty()) {
+            return EnumActionResult.PASS;
+        }
+        if (player.isSneaking()) {
+            copyConfiguration(stack, target, itemTarget);
+            show(player, "message.infwhat.replicator.copied", TextFormatting.GREEN);
+            return EnumActionResult.SUCCESS;
+        }
+
+        NBTTagCompound root = stack.getTagCompound();
+        if (root == null || !root.hasKey(TAG_CONFIGURATION, 10)) {
+            show(player, "message.infwhat.replicator.empty", TextFormatting.RED);
+            return EnumActionResult.SUCCESS;
+        }
+        NBTTagCompound config = root.getCompoundTag(TAG_CONFIGURATION);
+        String expectedType = itemTarget ? "item" : "fluid";
+        if (!expectedType.equals(config.getString(KEY_TYPE))) {
+            show(player, "message.infwhat.replicator.type_mismatch", TextFormatting.RED);
+            return EnumActionResult.SUCCESS;
+        }
+
+        boolean outputEnabled = config.getBoolean(KEY_OUTPUT_ENABLED);
+        int sideMask = config.getInteger(KEY_OUTPUT_SIDES);
+        ReplicatorPasteMode pasteMode = getPasteMode(stack);
+        boolean applied;
+        if (itemTarget) {
+            InfItemGeneratorTileEntity generator = (InfItemGeneratorTileEntity) target;
+            switch (pasteMode) {
+                case OUTPUT:
+                    applied = generator.applyOutputState(outputEnabled, sideMask);
+                    break;
+                case RATE:
+                    applied = generator.applyRates(readItemRates(config));
+                    break;
+                case REDSTONE:
+                    applied = generator.applyRedstoneConfiguration(
+                            RedstoneMode.byId(config.getInteger(KEY_REDSTONE_MODE)),
+                            readPulse(config, KEY_PULSE_ON), readPulse(config, KEY_PULSE_OFF));
+                    break;
+                case BATCH:
+                    applied = generator.setBatchSize(readBatch(config));
+                    break;
+                case ALL:
+                default:
+                    applied = generator.applyFullConfiguration(outputEnabled, sideMask,
+                            readItemRates(config), config.getBoolean(KEY_INFINITE_MODE))
+                            && generator.setBatchSize(readBatch(config));
+                    break;
+            }
+        } else {
+            InfFluidGeneratorTileEntity generator = (InfFluidGeneratorTileEntity) target;
+            switch (pasteMode) {
+                case OUTPUT:
+                    applied = generator.applyOutputState(outputEnabled, sideMask);
+                    break;
+                case RATE:
+                    applied = generator.applyRates(readFluidRates(config));
+                    break;
+                case REDSTONE:
+                    applied = generator.applyRedstoneConfiguration(
+                            RedstoneMode.byId(config.getInteger(KEY_REDSTONE_MODE)),
+                            readPulse(config, KEY_PULSE_ON), readPulse(config, KEY_PULSE_OFF));
+                    break;
+                case BATCH:
+                    applied = generator.setBatchSize(readBatch(config));
+                    break;
+                case ALL:
+                default:
+                    applied = generator.applyFullConfiguration(outputEnabled, sideMask,
+                            readFluidRates(config))
+                            && generator.setBatchSize(readBatch(config));
+                    break;
+            }
+        }
+        if (!applied) {
+            show(player, "message.infwhat.replicator.rejected", TextFormatting.RED);
+            return EnumActionResult.SUCCESS;
+        }
+        player.sendStatusMessage(new TextComponentTranslation(
+                "message.infwhat.replicator.pasted_mode", modeName(pasteMode))
+                .setStyle(new Style().setColor(TextFormatting.GREEN)), true);
+        return EnumActionResult.SUCCESS;
+    }
+
+    @Override
+    public ActionResult<ItemStack> onItemRightClick(World worldIn, EntityPlayer player,
+                                                    EnumHand hand) {
+        ItemStack stack = player.getHeldItem(hand);
+        if (!player.isSneaking()) {
+            // Regular air use cycles the paste mode; sneak-air clears the copied data.
+            if (worldIn.isRemote) {
+                return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+            }
+            ReplicatorPasteMode mode = getPasteMode(stack).next();
+            NBTTagCompound root = stack.getTagCompound();
+            if (root == null) {
+                root = new NBTTagCompound();
+                stack.setTagCompound(root);
+            }
+            root.setInteger(KEY_MODE, mode.ordinal());
+            player.sendStatusMessage(new TextComponentTranslation(
+                    "message.infwhat.replicator.mode", modeName(mode))
+                    .setStyle(new Style().setColor(TextFormatting.AQUA)), true);
+            return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+        }
+        if (worldIn.isRemote) {
+            return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+        }
+        NBTTagCompound root = stack.getTagCompound();
+        if (root == null || !root.hasKey(TAG_CONFIGURATION, 10)) {
+            show(player, "message.infwhat.replicator.empty", TextFormatting.RED);
+            return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+        }
+        root.removeTag(TAG_CONFIGURATION);
+        stack.setTagCompound(root);
+        show(player, "message.infwhat.replicator.cleared", TextFormatting.GREEN);
+        return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+    }
+
+    private static ReplicatorPasteMode getPasteMode(ItemStack stack) {
+        NBTTagCompound root = stack == null || stack.isEmpty() ? null : stack.getTagCompound();
+        return root == null ? ReplicatorPasteMode.ALL
+                : ReplicatorPasteMode.byId(root.getInteger(KEY_MODE));
+    }
+
+    private static String modeName(ReplicatorPasteMode mode) {
+        return I18n.format(
+                "item.infwhat.infinite_source_config_replicator.mode." + mode.key());
+    }
+
+    private static int readPulse(NBTTagCompound config, String key) {
+        if (!config.hasKey(key, 3)) {
+            return InfItemGeneratorTileEntity.DEFAULT_PULSE_TICKS;
+        }
+        return Math.max(InfItemGeneratorTileEntity.MIN_PULSE_TICKS,
+                Math.min(InfItemGeneratorTileEntity.MAX_PULSE_TICKS, config.getInteger(key)));
+    }
+
+    private static int readBatch(NBTTagCompound config) {
+        int size = config.hasKey(KEY_BATCH_SIZE, 3)
+                ? config.getInteger(KEY_BATCH_SIZE) : InfItemGeneratorTileEntity.DEFAULT_BATCH_SIZE;
+        return Math.max(InfItemGeneratorTileEntity.MIN_BATCH_SIZE,
+                Math.min(InfItemGeneratorTileEntity.MAX_BATCH_SIZE, size));
+    }
+
+    private static int[] readItemRates(NBTTagCompound config) {
+        int[] rates = new int[EnumFacing.values().length];
+        boolean hasSideRates = config.hasKey(SIDE_RATE_KEYS[0], 3);
+        int legacyRate = Math.max(1, config.hasKey(KEY_OUTPUT_RATE, 3)
+                ? config.getInteger(KEY_OUTPUT_RATE) : 1);
+        for (EnumFacing direction : EnumFacing.values()) {
+            int index = direction.ordinal();
+            rates[index] = hasSideRates
+                    ? (config.hasKey(SIDE_RATE_KEYS[index], 3)
+                            ? config.getInteger(SIDE_RATE_KEYS[index]) : legacyRate)
+                    : legacyRate;
+        }
+        return rates;
+    }
+
+    private static long[] readFluidRates(NBTTagCompound config) {
+        long[] rates = new long[EnumFacing.values().length];
+        boolean hasSideRates = config.hasKey(SIDE_RATE_KEYS[0], 4);
+        long legacyRate = Math.max(1L, config.hasKey(KEY_OUTPUT_RATE, 4)
+                ? config.getLong(KEY_OUTPUT_RATE) : 1L);
+        for (EnumFacing direction : EnumFacing.values()) {
+            int index = direction.ordinal();
+            rates[index] = hasSideRates
+                    ? (config.hasKey(SIDE_RATE_KEYS[index], 4)
+                            ? config.getLong(SIDE_RATE_KEYS[index]) : legacyRate)
+                    : legacyRate;
+        }
+        return rates;
+    }
+
+    private static void copyConfiguration(ItemStack card, TileEntity target, boolean itemTarget) {
+        NBTTagCompound config = new NBTTagCompound();
+        if (itemTarget) {
+            InfItemGeneratorTileEntity generator = (InfItemGeneratorTileEntity) target;
+            config.setString(KEY_TYPE, "item");
+            config.setBoolean(KEY_OUTPUT_ENABLED, generator.isOutputEnabled());
+            config.setInteger(KEY_OUTPUT_SIDES, generator.getOutputSideMask());
+            config.setBoolean(KEY_INFINITE_MODE, generator.isInfiniteModeEnabled());
+            config.setInteger(KEY_REDSTONE_MODE, generator.getRedstoneMode().ordinal());
+            config.setInteger(KEY_PULSE_ON, generator.getPulseOnTicks());
+            config.setInteger(KEY_PULSE_OFF, generator.getPulseOffTicks());
+            config.setInteger(KEY_BATCH_SIZE, generator.getBatchSize());
+            for (EnumFacing direction : EnumFacing.values()) {
+                config.setInteger(SIDE_RATE_KEYS[direction.ordinal()],
+                        generator.getSideRate(direction));
+            }
+        } else {
+            InfFluidGeneratorTileEntity generator = (InfFluidGeneratorTileEntity) target;
+            config.setString(KEY_TYPE, "fluid");
+            config.setBoolean(KEY_OUTPUT_ENABLED, generator.isOutputEnabled());
+            config.setInteger(KEY_OUTPUT_SIDES, generator.getOutputSideMask());
+            config.setInteger(KEY_REDSTONE_MODE, generator.getRedstoneMode().ordinal());
+            config.setInteger(KEY_PULSE_ON, generator.getPulseOnTicks());
+            config.setInteger(KEY_PULSE_OFF, generator.getPulseOffTicks());
+            config.setInteger(KEY_BATCH_SIZE, generator.getBatchSize());
+            for (EnumFacing direction : EnumFacing.values()) {
+                config.setLong(SIDE_RATE_KEYS[direction.ordinal()],
+                        generator.getSideRateMb(direction));
+            }
+        }
+        NBTTagCompound root = card.getTagCompound();
+        if (root == null) {
+            root = new NBTTagCompound();
+            card.setTagCompound(root);
+        }
+        root.setTag(TAG_CONFIGURATION, config);
+    }
+
+    private static String[] createSideRateKeys() {
+        EnumFacing[] directions = EnumFacing.values();
+        String[] keys = new String[directions.length];
+        for (EnumFacing direction : directions) {
+            String name = direction.getName();
+            keys[direction.ordinal()] = "SideRate"
+                    + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        }
+        return keys;
+    }
+
+    private static void show(EntityPlayer player, String translationKey, TextFormatting color) {
+        player.sendStatusMessage(new TextComponentTranslation(translationKey)
+                .setStyle(new Style().setColor(color)), true);
+    }
+
+    @Override
+    public void addInformation(ItemStack stack, EntityPlayer player, List<String> tooltip,
+                               boolean advanced) {
+        NBTTagCompound root = stack == null || stack.isEmpty() ? null : stack.getTagCompound();
+        if (root != null && root.hasKey(TAG_CONFIGURATION, 10)) {
+            String type = root.getCompoundTag(TAG_CONFIGURATION).getString(KEY_TYPE);
+            tooltip.add(I18n.format(
+                    "item.infwhat.infinite_source_config_replicator.saved",
+                    I18n.format("item.infwhat.infinite_source_config_replicator.type." + type)));
+        } else {
+            tooltip.add(I18n.format(
+                    "item.infwhat.infinite_source_config_replicator.empty"));
+        }
+        ReplicatorPasteMode mode = getPasteMode(stack);
+        tooltip.add(I18n.format(
+                "item.infwhat.infinite_source_config_replicator.mode", modeName(mode)));
+        tooltip.add(I18n.format(
+                "item.infwhat.infinite_source_config_replicator.fields",
+                I18n.format(
+                        "item.infwhat.infinite_source_config_replicator.fields." + mode.key())));
+        // 1.9 tooltips do not wrap; split the long instruction text so the tooltip stays
+        // narrow enough to render fully even when hovering the leftmost inventory column.
+        String instructions = I18n.format(
+                "item.infwhat.infinite_source_config_replicator.instructions");
+        for (String line : instructions.split("[\uFF1B;]")) {
+            if (!line.trim().isEmpty()) {
+                tooltip.add(line.trim());
+            }
+        }
+    }
+}
